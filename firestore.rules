@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function role() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data.role; }
+    function isAdmin() { return signedIn() && role() == 'ADMIN'; }
+    function isStaff() { return signedIn() && role() in ['ADMIN','LEADER','OPERATOR']; }
+
+    // Users: self-create only as OPERATOR; role can only be changed by ADMIN.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'OPERATOR';
+      allow update: if isAdmin() || (request.auth.uid == uid && request.resource.data.role == resource.data.role);
+      allow delete: if false;
+    }
+    // Master data and BOM: everyone staff reads, only ADMIN writes.
+    match /{coll}/{id} {
+      allow read: if isStaff() && coll in ['productCategories','supplyCategories','productionLines','operatorGroups','shifts','models','parts','bomHeaders','bomDetails','appSettings','productionBomSnapshots'];
+      allow write: if isAdmin() && coll in ['productCategories','supplyCategories','productionLines','operatorGroups','shifts','models','parts','bomHeaders','bomDetails','appSettings'];
+    }
+    match /productions/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if false;
+    }
+    match /productionBomSnapshots/{id} { allow create: if isStaff(); allow update, delete: if false; }
+    // Transactions are append-only; corrections go to transactionAdjustments.
+    match /supplyTransactions/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff() && request.resource.data.operatorUid == request.auth.uid && request.resource.data.qty > 0;
+      allow update, delete: if false;
+    }
+    match /supplyTotals/{id} { allow read: if isStaff(); allow create, update: if isStaff(); allow delete: if false; }
+    match /transactionAdjustments/{id} { allow read: if isStaff(); allow create: if isStaff() && request.resource.data.reason is string; allow update, delete: if false; }
+    match /auditLogs/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if false; }
+  }
+}
