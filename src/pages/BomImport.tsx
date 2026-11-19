@@ -18,11 +18,11 @@ export default function BomImport() {
   const [wb, setWb] = useState<XLSX.WorkBook | null>(null); const [sheet, setSheet] = useState(''); const [rows, setRows] = useState<RawRow[]>([])
   const [cols, setCols] = useState<Cols>(detectCols([])); const [showMap, setShowMap] = useState(false)
   const [autoActive, setAutoActive] = useState(true); const [confirm, setConfirm] = useState(false)
-  const [busy, setBusy] = useState(''); const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(''); const [msg, setMsg] = useState(''); const [fileName, setFileName] = useState('')
   const headers = rows[0] ? Object.keys(rows[0]) : []
   const loadSheet = (w: XLSX.WorkBook, name: string) => { const r = XLSX.utils.sheet_to_json<RawRow>(w.Sheets[name], { defval: '' }); setSheet(name); setRows(r); setCols(detectCols(r[0] ? Object.keys(r[0]) : [])); setConfirm(false) }
   const onFile = async (file?: File) => {
-    if (!file) return; setMsg('')
+    if (!file) return; setMsg(''); setFileName(file.name)
     try { const w = XLSX.read(await file.arrayBuffer(), { type: 'array' }); setWb(w); loadSheet(w, w.SheetNames[0]) } catch { setMsg('File tidak bisa dibaca. Gunakan .xlsx atau .xls') }
   }
   const ok = requiredCols(cols)
@@ -60,7 +60,10 @@ export default function BomImport() {
   const byModel = useMemo(() => { const m = new Map<string, Header[]>(); boms.items.forEach(h => m.set(h.modelId, [...(m.get(h.modelId) ?? []), h])); return [...m] }, [boms.items])
   return <div className="space-y-4"><h2 className="text-lg font-bold">Upload BOM (Excel)</h2>
     <p className="text-sm text-slate-600">Satu file untuk semua model. Kolom dibaca dari judul: Supplier, Material, Desc, Internal Model, External Model, QTY, Supply Kategori. QTY 0 dilewati (part tidak dipakai).</p>
-    <input type="file" accept=".xlsx,.xls" onChange={e => onFile(e.target.files?.[0])} />
+    <div className="border-2 border-dashed border-blue-500 bg-blue-50 rounded-xl p-5 text-center space-y-2">
+      <p className="text-sm font-semibold text-[#0b1f3a]">Langkah 1: pilih file Excel BOM</p>
+      <label className="inline-block cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-6 py-3 shadow">📁 Pilih File Excel<input type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { onFile(e.target.files?.[0]); e.target.value = '' }} /></label>
+      <p className="text-sm text-slate-600">{fileName || 'Belum ada file dipilih (.xlsx / .xls)'}</p></div>
     {wb && wb.SheetNames.length > 1 && <select className="border rounded-lg p-2" value={sheet} onChange={e => loadSheet(wb, e.target.value)}>{wb.SheetNames.map(s => <option key={s}>{s}</option>)}</select>}
     {rows.length > 0 && <>
       {(!ok || showMap) ? <div className="grid gap-2 sm:grid-cols-2 bg-white rounded-xl shadow p-3">{LABELS.map(([k, label, req]) => <label key={k} className="text-sm">{label}{req && ' *'}<select className="w-full border rounded-lg p-2" value={cols[k]} onChange={e => setCols({ ...cols, [k]: e.target.value })}><option value="">—</option>{headers.map(h => <option key={h}>{h}</option>)}</select></label>)}</div>
@@ -71,6 +74,7 @@ export default function BomImport() {
           <p><b>{result.totalRows}</b> baris · <b>{result.groups.length}</b> model · <b>{result.zeroRows}</b> baris QTY 0 dilewati · <b className={result.errors.length ? 'text-red-600' : ''}>{result.errors.length}</b> baris bermasalah</p>
           <p>{newParts.size} part baru akan dibuat di master part · {plan.filter(p => p.isNewModel).length} model baru · unit part diisi PCS</p>
           {noCat > 0 && <p className="text-orange-600">{noCat} baris BOM belum punya Supply Kategori (kolom G kosong). Tetap bisa diimpor; isi kolom G lalu upload ulang untuk membuat versi baru.</p>}</div>
+        {result.warnings.length > 0 && <details className="bg-yellow-50 rounded-xl p-3 text-sm text-yellow-800"><summary className="cursor-pointer font-medium">{result.warnings.length} baris duplikat identik digabung (dihitung sekali). Klik untuk lihat.</summary><ul className="max-h-48 overflow-auto mt-2">{result.warnings.slice(0, 100).map((w, i) => <li key={i}>Baris {w.row}: {w.msg}</li>)}</ul></details>}
         {result.errors.length > 0 && <ul className="bg-red-50 rounded-xl p-3 text-sm text-red-700 max-h-60 overflow-auto">{result.errors.slice(0, 100).map((e, i) => <li key={i}>Baris {e.row}: {e.msg}</li>)}{result.errors.length > 100 && <li>…dan {result.errors.length - 100} lainnya</li>}</ul>}
         <div className="overflow-x-auto bg-white rounded-xl shadow"><table className="text-sm w-full"><thead><tr className="text-left"><th className="p-2">Model</th><th>Part dipakai</th><th>QTY 0</th><th>Hasil</th></tr></thead>
           <tbody>{plan.slice(0, 300).map(p => <tr key={p.g.modelId}><td className="p-2">{p.g.model}{p.isNewModel && <em className="text-blue-600"> · baru</em>}</td><td>{p.g.lines.length}</td><td>{p.g.skippedZero}</td><td>{p.unchanged ? 'Tidak berubah (dilewati)' : `Versi ${p.version}`}</td></tr>)}</tbody></table></div>

@@ -3,7 +3,7 @@ export type RawRow = Record<string, unknown>
 export interface Cols { supplier: string; material: string; desc: string; internal: string; external: string; qty: string; supplyCategory: string }
 export interface Line { row: number; partCode: string; partName: string; supplier: string; internalModel: string; qty: number; supplyCategoryId: string }
 export interface ModelGroup { model: string; modelId: string; internalModel: string; lines: Line[]; skippedZero: number; signature: string }
-export interface ParseResult { groups: ModelGroup[]; errors: { row: number; msg: string }[]; totalRows: number; zeroRows: number }
+export interface ParseResult { groups: ModelGroup[]; errors: { row: number; msg: string }[]; warnings: { row: number; msg: string }[]; totalRows: number; zeroRows: number }
 
 /** Finds columns by header name (Supplier, Material, Desc, Internal Model, External Model, QTY, Supply Kategori). */
 export function detectCols(h: string[]): Cols {
@@ -32,7 +32,8 @@ export const signatureOf = (lines: Pick<Line, 'partCode' | 'qty' | 'supplyCatego
 }
 export function parseBomFile(raw: RawRow[], c: Cols, ctx: { supplyCategories: { id: string; name: string }[] }): ParseResult {
   const cats = new Map(ctx.supplyCategories.map(x => [x.name.trim().toLowerCase(), x.id]))
-  const groups = new Map<string, ModelGroup>(); const errors: ParseResult['errors'] = []; const seen = new Set<string>()
+  const groups = new Map<string, ModelGroup>(); const errors: ParseResult['errors'] = []; const warnings: ParseResult['warnings'] = []
+  const seen = new Map<string, { row: number; qty: number; catId: string; internal: string }>()
   let totalRows = 0, zeroRows = 0
   const str = (r: RawRow, k: string) => (k ? String(r[k] ?? '').trim() : '')
   raw.forEach((r, i) => {
@@ -49,8 +50,13 @@ export function parseBomFile(raw: RawRow[], c: Cols, ctx: { supplyCategories: { 
     const catName = str(r, c.supplyCategory); let catId = ''
     if (catName) { catId = cats.get(catName.toLowerCase()) ?? ''; if (!catId) return err(`Supply Kategori "${catName}" tidak dikenal (${partCode})`) }
     const modelId = slug(model); const key = `${modelId}|${partId(partCode)}`
-    if (seen.has(key)) return err(`Duplikat: ${partCode} muncul lagi untuk ${model}`)
-    seen.add(key)
+    const internal = str(r, c.internal); const prev = seen.get(key)
+    if (prev) {
+      // Same part twice in the SAME model. Identical data is merged (counted once) with a visible warning; different data stays an error.
+      if (prev.qty === qty && prev.catId === catId) { warnings.push({ row, msg: `${partCode} untuk ${model} sama persis dengan baris ${prev.row} (QTY ${qty}), dihitung sekali` }); return }
+      return err(`${partCode} muncul dua kali untuk ${model} dengan data berbeda: baris ${prev.row} QTY ${prev.qty}${prev.internal ? ` (Internal ${prev.internal})` : ''}, baris ${row} QTY ${qty}${internal ? ` (Internal ${internal})` : ''}`)
+    }
+    seen.set(key, { row, qty, catId, internal })
     let g = groups.get(modelId)
     if (!g) { g = { model, modelId, internalModel: str(r, c.internal), lines: [], skippedZero: 0, signature: '' }; groups.set(modelId, g) }
     if (qty === 0) { g.skippedZero++; zeroRows++; return } // QTY 0 = part not used by this model
@@ -58,5 +64,5 @@ export function parseBomFile(raw: RawRow[], c: Cols, ctx: { supplyCategories: { 
   })
   const list = [...groups.values()].filter(g => g.lines.length > 0)
   list.forEach(g => { g.signature = signatureOf(g.lines) })
-  return { groups: list, errors, totalRows, zeroRows }
+  return { groups: list, errors, warnings, totalRows, zeroRows }
 }

@@ -18,9 +18,13 @@ service cloud.firestore {
       allow read: if isStaff() && coll in ['productCategories','supplyCategories','productionLines','operatorGroups','shifts','models','parts','bomHeaders','bomDetails','appSettings','productionBomSnapshots'];
       allow write: if isAdmin() && coll in ['productCategories','supplyCategories','productionLines','operatorGroups','shifts','models','parts','bomHeaders','bomDetails','appSettings'];
     }
+    // Productions: any staff may create/edit while ACTIVE; model and BOM version are immutable;
+    // only ADMIN/LEADER may touch a COMPLETED/CANCELLED production (reopen). Never deleted.
     match /productions/{id} {
       allow read: if isStaff();
-      allow create, update: if isStaff();
+      allow create: if isStaff() && request.resource.data.status == 'ACTIVE' && request.resource.data.qty > 0 && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isStaff() && request.resource.data.modelId == resource.data.modelId && request.resource.data.bomVersion == resource.data.bomVersion
+        && request.resource.data.qty > 0 && (resource.data.status == 'ACTIVE' || role() in ['ADMIN','LEADER']);
       allow delete: if false;
     }
     match /productionBomSnapshots/{id} { allow create: if isStaff(); allow update, delete: if false; }

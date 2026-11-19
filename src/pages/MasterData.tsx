@@ -40,7 +40,9 @@ function List({ tab }: { tab: typeof TABS[number] }) {
       <button className="bg-blue-600 text-white rounded-lg px-4 py-3" onClick={async () => { await add(name, cat); setName('') }}>Tambah</button>
     </div>
     <ul className="divide-y bg-white rounded-xl shadow">{sorted.map(i => <li key={i.id} className="p-3 flex items-center gap-3">
-      <span className={`flex-1 ${i.active ? '' : 'line-through text-slate-400'}`}>{i.name}{i.productCategoryId && <em className="text-xs text-slate-500"> · {cats.items.find(c => c.id === i.productCategoryId)?.name}</em>}</span>
+      <span className={`flex-1 ${i.active ? '' : 'line-through text-slate-400'}`}>{i.name}</span>
+      {tab.key === 'models' && <select className="border rounded-lg p-1 text-sm" value={i.productCategoryId ?? ''} onChange={e => run(async () => { await updateDoc(doc(db, 'models', i.id), { productCategoryId: e.target.value }); await audit(user!, 'UPDATE', 'models', i.id, { productCategoryId: i.productCategoryId ?? '' }, { productCategoryId: e.target.value }) })}><option value="">Kategori…</option>{cats.items.filter(c => c.active).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
+      {tab.key === 'models' && <select className="border rounded p-1 text-sm" value={i.productCategoryId ?? ''} onChange={e => run(async () => { await updateDoc(doc(db, 'models', i.id), { productCategoryId: e.target.value }); await audit(user!, 'UPDATE', 'models', i.id, { productCategoryId: i.productCategoryId ?? '' }, { productCategoryId: e.target.value }) })}><option value="">Kategori…</option>{cats.items.filter(c => c.active).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
       <button className="underline text-sm" onClick={() => rename(i)}>Ubah</button>
       <button className="underline text-sm" onClick={() => toggle(i)}>{i.active ? 'Nonaktifkan' : 'Aktifkan'}</button></li>)}</ul>
   </div>

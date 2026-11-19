@@ -15,10 +15,15 @@ describe('BOM file', () => {
     expect(r.groups[0].lines.length).toBe(1); expect(r.groups[0].skippedZero).toBe(1)
   })
   it('reports errors instead of importing bad rows', () => {
-    const r = parseBomFile([row({ QTY: 'abc' }), row({ Material: '' }), row({ 'Supply Kategori': 'Nope' }), row({}), row({})], cols, cats)
+    const r = parseBomFile([row({ QTY: 'abc' }), row({ Material: '' }), row({ 'Supply Kategori': 'Nope' }), row({}), row({ QTY: 2 })], cols, cats)
     expect(r.errors.length).toBe(4)
-    expect(r.errors.some(e => e.msg.startsWith('Duplikat'))).toBe(true)
+    expect(r.errors.some(e => e.msg.includes('data berbeda'))).toBe(true)
     expect(r.groups[0].lines.length).toBe(1)
+  })
+  it('same part in different models is fine; identical duplicate in one model is merged with a warning', () => {
+    const r = parseBomFile([row({}), row({ 'External Model': 'ES-T90' }), row({})], cols, cats)
+    expect(r.errors).toEqual([]); expect(r.warnings.length).toBe(1)
+    expect(r.groups.map(g => g.lines.length)).toEqual([1, 1])
   })
   it('supply category is optional, known names resolve', () => {
     const r = parseBomFile([row({ 'Supply Kategori': 'supply base' }), row({ Material: 'M2' })], cols, cats)
