@@ -3,6 +3,7 @@ import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/f
 import { db } from '../lib/firebase'
 import { todayStr } from '../lib/production'
 import { when, type Ts } from '../lib/format'
+import { exportXlsx } from '../lib/exportXlsx'
 interface Tx { id: string; createdAt: Ts; modelName: string; productCategoryName: string; lineName: string; groupName: string; supplyCategoryName: string; partCode: string; partName: string; qty: number; unit: string; operatorName: string; shift: number; type: string }
 export default function History() {
   const [from, setFrom] = useState(todayStr()); const [to, setTo] = useState(todayStr()); const [n, setN] = useState(300)
@@ -25,6 +26,7 @@ export default function History() {
       <select className={sel} value={shift} onChange={e => setShift(e.target.value)}><option value="">Semua shift</option><option>1</option><option>2</option><option>3</option></select>
       <select className={sel} value={type} onChange={e => setType(e.target.value)}><option value="">Semua tipe</option><option value="TAKE_ALL">Take All</option><option value="PARTIAL">Partial</option><option value="OVER_SUPPLY">Over supply</option></select>
       <input className={sel + ' col-span-2'} placeholder="Cari part, model, operator, line, group, supply category…" value={q} onChange={e => setQ(e.target.value)} /></div>
+    <button disabled={!shown.length} className="border border-blue-600 text-blue-700 disabled:opacity-40 rounded-lg px-4 py-2 font-semibold" onClick={() => exportXlsx(`riwayat-${from}_${to}`, shown.map(t => ({ Waktu: t.createdAt?.toDate ? t.createdAt.toDate().toLocaleString('id-ID') : '', Model: t.modelName, Kategori: t.productCategoryName, Line: t.lineName, Group: t.groupName, 'Supply Category': t.supplyCategoryName, 'Kode Part': t.partCode, 'Nama Part': t.partName, Qty: t.qty, Unit: t.unit, Operator: t.operatorName, Shift: t.shift, Tipe: t.type, Dikoreksi: rev.has(t.id) ? 'Ya' : '' })), 'Riwayat')}>Ekspor Excel sesuai filter ({shown.length})</button>
     {err && <p className="text-red-600">{err}</p>}
     <p className="text-sm text-slate-500">{shown.length} transaksi{txs.length >= n && ' (dibatasi; tekan Muat lebih banyak)'} · yang dicoret sudah dikoreksi</p>
     <ul className="space-y-2">{shown.map(t => <li key={t.id} className={`bg-white rounded-xl shadow p-3 text-sm ${rev.has(t.id) ? 'opacity-50' : ''}`}>
