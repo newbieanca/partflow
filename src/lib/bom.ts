@@ -5,6 +5,7 @@ export const requiredQty = (qtyPerUnit: number, productionQty: number) => {
   if (!(qtyPerUnit >= 0) || !(productionQty >= 0)) throw new Error('Quantities must be non-negative numbers')
   return clean(qtyPerUnit * productionQty)
 }
+export const sumQty = (a: number, b: number) => clean(a + b)
 export const remainingQty = (required: number, taken: number) => clean(required - taken)
 export const takeAllQty = (required: number, taken: number) => Math.max(0, remainingQty(required, taken))
 export const supplyStatus = (required: number, taken: number): SupplyStatus => {

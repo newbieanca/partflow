@@ -5,6 +5,8 @@ import MasterData from './pages/MasterData'
 import Parts from './pages/Parts'
 import BomImport from './pages/BomImport'
 import Production from './pages/Production'
+import Supply from './pages/Supply'
+import History from './pages/History'
 function Login() {
   const { login } = useAuth(); const [e, setE] = useState(''); const [p, setP] = useState(''); const [err, setErr] = useState('')
   return <div className="min-h-screen grid place-items-center bg-slate-100 p-4"><div className="w-full max-w-sm bg-white rounded-xl p-6 shadow space-y-3">
@@ -22,12 +24,14 @@ export default function App() {
   const admin = role === 'ADMIN'
   return <div className="min-h-screen bg-slate-100">
     <header className="bg-[#0b1f3a] p-3 flex flex-wrap items-center gap-2"><b className="text-white mr-2">PARTFLOW</b>
-      <NavLink to="/" end className={link}>Beranda</NavLink><NavLink to="/produksi" className={link}>Produksi</NavLink><NavLink to="/part" className={link}>Part</NavLink>
+      <NavLink to="/" end className={link}>Beranda</NavLink><NavLink to="/produksi" className={link}>Produksi</NavLink><NavLink to="/supply" className={link}>Supply</NavLink><NavLink to="/riwayat" className={link}>Riwayat</NavLink><NavLink to="/part" className={link}>Part</NavLink>
       {admin && <><NavLink to="/master" className={link}>Master Data</NavLink><NavLink to="/bom" className={link}>Impor BOM</NavLink></>}
       <span className="ml-auto text-xs text-slate-300">{user.email} · {role}</span><button className="text-white underline text-sm" onClick={logout}>Keluar</button></header>
     <main className="p-4 max-w-4xl mx-auto"><Routes>
-      <Route path="/" element={<p>Selamat datang. Buka menu Produksi untuk mencatat lot harian. Modul pengambilan part menyusul di Phase 4.</p>} />
+      <Route path="/" element={<p>Selamat datang. Buka menu Produksi untuk mencatat lot harian. Menu Supply untuk mencatat pengambilan part, Riwayat untuk melihat semua transaksi.</p>} />
       <Route path="/produksi" element={<Production />} />
+      <Route path="/supply" element={<Supply />} />
+      <Route path="/riwayat" element={<History />} />
       <Route path="/part" element={<Parts />} />
       <Route path="/master" element={admin ? <MasterData /> : <Navigate to="/" />} />
       <Route path="/bom" element={admin ? <BomImport /> : <Navigate to="/" />} />

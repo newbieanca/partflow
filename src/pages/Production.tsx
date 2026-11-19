@@ -9,10 +9,10 @@ interface Named { name: string; active?: boolean; productCategoryId?: string }
 interface Header { modelId: string; version: number; active: boolean }
 type Status = 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 interface Prod { modelId: string; modelName: string; productCategoryId: string; productCategoryName: string; lineId: string; lineName: string; groupId: string; groupName: string; qty: number; date: string; notes: string; status: Status; bomVersion: number; createdByName: string }
-type P = Prod & { id: string }
+export type P = Prod & { id: string }
 const BADGE: Record<Status, string> = { ACTIVE: 'bg-blue-100 text-blue-800', COMPLETED: 'bg-green-100 text-green-800', CANCELLED: 'bg-slate-200 text-slate-600' }
 const empty = { modelText: '', categoryId: '', lineId: '', groupId: '', qty: '', date: todayStr(), notes: '' }
-function useProductions(date: string) {
+export function useProductions(date: string) {
   const [items, setItems] = useState<P[]>([]); const [err, setErr] = useState('')
   useEffect(() => {
     const q = date ? query(collection(db, 'productions'), where('date', '==', date)) : query(collection(db, 'productions'), orderBy('date', 'desc'), limit(200))

@@ -28,14 +28,42 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /productionBomSnapshots/{id} { allow create: if isStaff(); allow update, delete: if false; }
-    // Transactions are append-only; corrections go to transactionAdjustments.
+    function leaderUp() { return signedIn() && role() in ['ADMIN','LEADER']; }
+    function oldTaken() { return resource == null ? 0 : resource.data.taken; }
+    // A running total may only change by EXACTLY the qty of a transaction/adjustment document created in the same commit.
+    function totalsMove(coll, eid) {
+      return !exists(/databases/$(db)/documents/$(coll)/$(eid))
+        && existsAfter(/databases/$(db)/documents/$(coll)/$(eid))
+        && getAfter(/databases/$(db)/documents/$(coll)/$(eid)).data.productionId == request.resource.data.productionId
+        && getAfter(/databases/$(db)/documents/$(coll)/$(eid)).data.partId == request.resource.data.partId
+        && math.abs(request.resource.data.taken - (oldTaken() + getAfter(/databases/$(db)/documents/$(coll)/$(eid)).data.qty)) < 0.000001;
+    }
+    // Transactions are append-only; corrections go to transactionAdjustments (leader/admin).
     match /supplyTransactions/{id} {
       allow read: if isStaff();
-      allow create: if isStaff() && request.resource.data.operatorUid == request.auth.uid && request.resource.data.qty > 0;
+      allow create: if isStaff() && request.resource.data.operatorUid == request.auth.uid
+        && request.resource.data.qty is number && request.resource.data.qty > 0
+        && request.resource.data.shift in [1,2,3]
+        && request.resource.data.type in ['TAKE_ALL','PARTIAL','OVER_SUPPLY']
+        && get(/databases/$(db)/documents/productions/$(request.resource.data.productionId)).data.status == 'ACTIVE';
       allow update, delete: if false;
     }
-    match /supplyTotals/{id} { allow read: if isStaff(); allow create, update: if isStaff(); allow delete: if false; }
-    match /transactionAdjustments/{id} { allow read: if isStaff(); allow create: if isStaff() && request.resource.data.reason is string; allow update, delete: if false; }
+    match /supplyTotals/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && id == request.resource.data.productionId + '_' + request.resource.data.partId
+        && ((request.resource.data.lastKind == 'TX' && totalsMove('supplyTransactions', request.resource.data.lastId))
+         || (request.resource.data.lastKind == 'ADJ' && leaderUp() && totalsMove('transactionAdjustments', request.resource.data.lastId)));
+      allow delete: if false;
+    }
+    match /transactionAdjustments/{id} {
+      allow read: if isStaff();
+      allow create: if leaderUp() && request.resource.data.reason is string && request.resource.data.reason.size() > 2
+        && id == 'rev_' + request.resource.data.txId
+        && exists(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId))
+        && request.resource.data.qty == -get(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId)).data.qty;
+      allow update, delete: if false;
+    }
     match /auditLogs/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if false; }
   }
 }
