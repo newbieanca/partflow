@@ -2,15 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
     function signedIn() { return request.auth != null; }
-    function role() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data.role; }
-    function isAdmin() { return signedIn() && role() == 'ADMIN'; }
-    function isStaff() { return signedIn() && role() in ['ADMIN','LEADER','OPERATOR']; }
+    function me() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
+    function role() { return me().role; }
+    // A deactivated user (active == false) loses ALL access server-side, not just in the UI.
+    function activeUser() { return me().get('active', true) != false; }
+    function isAdmin() { return signedIn() && role() == 'ADMIN' && activeUser(); }
+    function isStaff() { return signedIn() && role() in ['ADMIN','LEADER','OPERATOR'] && activeUser(); }
 
-    // Users: self-create only as OPERATOR; role can only be changed by ADMIN.
+    // Users: self-create only as OPERATOR; only an active ADMIN may create other users or change role/active.
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'OPERATOR';
-      allow update: if isAdmin() || (request.auth.uid == uid && request.resource.data.role == resource.data.role);
+      allow create: if signedIn() && ((request.auth.uid == uid && request.resource.data.role == 'OPERATOR') || isAdmin());
+      allow update: if isAdmin() || (request.auth.uid == uid && request.resource.data.role == resource.data.role
+        && request.resource.data.get('active', true) == resource.data.get('active', true));
       allow delete: if false;
     }
     // Master data and BOM: everyone staff reads, only ADMIN writes.
@@ -28,7 +32,7 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /productionBomSnapshots/{id} { allow create: if isStaff(); allow update, delete: if false; }
-    function leaderUp() { return signedIn() && role() in ['ADMIN','LEADER']; }
+    function leaderUp() { return signedIn() && role() in ['ADMIN','LEADER'] && activeUser(); }
     function oldTaken() { return resource == null ? 0 : resource.data.taken; }
     // A running total may only change by EXACTLY the qty of a transaction/adjustment document created in the same commit.
     function totalsMove(coll, eid) {

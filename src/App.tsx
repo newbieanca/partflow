@@ -1,44 +1,43 @@
-import { useState } from 'react'
+import { useState, type ReactElement } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
-import MasterData from './pages/MasterData'
-import Parts from './pages/Parts'
-import BomImport from './pages/BomImport'
+import { canAccess, type Section } from './lib/access'
+import { MENU } from './menu'
+import Dashboard from './pages/Dashboard'
 import Production from './pages/Production'
 import Supply from './pages/Supply'
 import History from './pages/History'
-import Dashboard from './pages/Dashboard'
+import Parts from './pages/Parts'
 import Reports from './pages/Reports'
+import MasterData from './pages/MasterData'
+import BomImport from './pages/BomImport'
+import Users from './pages/Users'
 import Audit from './pages/Audit'
+import Profile from './pages/Profile'
+const PAGES: Record<Section, ReactElement> = { dashboard: <Dashboard />, produksi: <Production />, supply: <Supply />, riwayat: <History />, part: <Parts />, laporan: <Reports />, master: <MasterData />, bom: <BomImport />, pengguna: <Users />, audit: <Audit />, profil: <Profile /> }
 function Login() {
-  const { login } = useAuth(); const [e, setE] = useState(''); const [p, setP] = useState(''); const [err, setErr] = useState('')
+  const { login, blocked } = useAuth(); const [e, setE] = useState(''); const [p, setP] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
+  const go = async () => { setErr(''); setBusy(true); try { await login(e.trim(), p) } catch { setErr('Email atau password salah.') } finally { setBusy(false) } }
   return <div className="min-h-screen grid place-items-center bg-slate-100 p-4"><div className="w-full max-w-sm bg-white rounded-xl p-6 shadow space-y-3">
-    <h1 className="text-2xl font-bold text-[#0b1f3a]">PARTFLOW</h1>
-    <input className="w-full border rounded-lg p-3" placeholder="Email" value={e} onChange={x => setE(x.target.value)} />
-    <input className="w-full border rounded-lg p-3" type="password" placeholder="Password" value={p} onChange={x => setP(x.target.value)} />
-    {err && <p className="text-red-600 text-sm">{err}</p>}
-    <button className="w-full bg-blue-600 text-white rounded-lg p-3 font-semibold" onClick={() => login(e, p).catch(() => setErr('Login gagal'))}>Masuk</button></div></div>
+    <h1 className="text-2xl font-bold text-[#0b1f3a]">PARTFLOW</h1><p className="text-sm text-slate-500">Part Supply Management</p>
+    <input className="w-full border rounded-lg p-3" type="email" placeholder="Email" value={e} onChange={x => setE(x.target.value)} />
+    <input className="w-full border rounded-lg p-3" type="password" placeholder="Password" value={p} onChange={x => setP(x.target.value)} onKeyDown={x => x.key === 'Enter' && go()} />
+    {(err || blocked) && <p className="text-red-600 text-sm">{err || blocked}</p>}
+    <button disabled={busy} className="w-full bg-blue-600 disabled:opacity-40 text-white rounded-lg p-3 font-semibold" onClick={go}>{busy ? 'Masuk…' : 'Masuk'}</button></div></div>
 }
-const link = ({ isActive }: { isActive: boolean }) => `px-3 py-2 rounded-lg ${isActive ? 'bg-white text-[#0b1f3a]' : 'text-white'}`
 export default function App() {
-  const { user, role, loading, logout } = useAuth()
-  if (loading) return <p className="p-6">Memuat…</p>
+  const { user, role, loading } = useAuth()
+  if (loading) return <div className="min-h-screen grid place-items-center text-slate-500">Memuat…</div>
   if (!user) return <Login />
-  const admin = role === 'ADMIN'; const leaderUp = admin || role === 'LEADER'
-  return <div className="min-h-screen bg-slate-100">
-    <header className="bg-[#0b1f3a] p-3 flex flex-wrap items-center gap-2"><b className="text-white mr-2">PARTFLOW</b>
-      <NavLink to="/" end className={link}>Beranda</NavLink>{leaderUp && <NavLink to="/laporan" className={link}>Laporan</NavLink>}<NavLink to="/produksi" className={link}>Produksi</NavLink><NavLink to="/supply" className={link}>Supply</NavLink><NavLink to="/riwayat" className={link}>Riwayat</NavLink><NavLink to="/part" className={link}>Part</NavLink>
-      {admin && <><NavLink to="/master" className={link}>Master Data</NavLink><NavLink to="/audit" className={link}>Audit</NavLink><NavLink to="/bom" className={link}>Impor BOM</NavLink></>}
-      <span className="ml-auto text-xs text-slate-300">{user.email} · {role}</span><button className="text-white underline text-sm" onClick={logout}>Keluar</button></header>
-    <main className="p-4 max-w-4xl mx-auto"><Routes>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/laporan" element={leaderUp ? <Reports /> : <Navigate to="/" />} />
-      <Route path="/audit" element={admin ? <Audit /> : <Navigate to="/" />} />
-      <Route path="/produksi" element={<Production />} />
-      <Route path="/supply" element={<Supply />} />
-      <Route path="/riwayat" element={<History />} />
-      <Route path="/part" element={<Parts />} />
-      <Route path="/master" element={admin ? <MasterData /> : <Navigate to="/" />} />
-      <Route path="/bom" element={admin ? <BomImport /> : <Navigate to="/" />} />
-      <Route path="*" element={<Navigate to="/" />} /></Routes></main></div>
+  const items = MENU.filter(m => canAccess(role, m.section)); const bottom = items.filter(m => m.bottom)
+  const side = ({ isActive }: { isActive: boolean }) => `flex items-center gap-2 px-3 py-3 rounded-lg ${isActive ? 'bg-white text-[#0b1f3a] font-semibold' : 'text-slate-200 hover:bg-white/10'}`
+  const tab = ({ isActive }: { isActive: boolean }) => `flex flex-col items-center justify-center min-h-16 text-xs ${isActive ? 'text-blue-700 font-bold' : 'text-slate-500'}`
+  return <div className="min-h-screen bg-slate-100 md:flex">
+    <aside className="hidden md:flex md:w-56 md:flex-col bg-[#0b1f3a] p-3 gap-1 sticky top-0 h-screen overflow-y-auto"><b className="text-white text-lg px-3 py-2">PARTFLOW</b>{items.map(m => <NavLink key={m.to} to={m.to} end={m.to === '/'} className={side}><span>{m.icon}</span>{m.label}</NavLink>)}</aside>
+    <div className="flex-1 min-w-0">
+      <header className="md:hidden bg-[#0b1f3a] text-white px-4 pb-3 flex items-center" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}><b>PARTFLOW</b><span className="ml-auto text-xs text-slate-300">{role}</span></header>
+      <main className="p-4 max-w-4xl mx-auto pb-28 md:pb-8"><Routes>
+        {MENU.map(m => <Route key={m.to} path={m.to} element={canAccess(role, m.section) ? PAGES[m.section] : <Navigate to="/" />} />)}
+        <Route path="*" element={<Navigate to="/" />} /></Routes></main></div>
+    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t shadow-lg grid grid-cols-5 z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>{bottom.map(m => <NavLink key={m.to} to={m.to} end={m.to === '/'} className={tab}><span className="text-xl">{m.icon}</span>{m.label}</NavLink>)}</nav></div>
 }

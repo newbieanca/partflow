@@ -1,16 +1,28 @@
 # PARTFLOW – Part Supply Management System
 React + TypeScript + Vite + Tailwind, Firebase (Auth + Firestore), Vercel.
 
-## Status: Phase 1 (partial)
-Done: scaffold, auth + role bootstrap, Firestore rules draft, BOM calc + tests, atomic take function (`src/lib/supply.ts`).
-Not done: master data, production, supply UI, dashboard, reports, audit writes, PWA icons/service worker, rules tests.
+## Status
+Semua fase selesai dibangun: master data, BOM (impor Excel + versi), produksi (snapshot BOM), supply (Take All / Partial / over supply / koreksi),
+dashboard, laporan, ekspor Excel, audit log, manajemen pengguna, PWA. Lihat `docs/UJI-MANUAL.md` untuk apa yang masih harus dibuktikan dengan akun nyata.
 
 ## Setup
-1. Firebase console: create project, enable Email/Password auth and Firestore, register a web app.
-2. Copy `.env.example` to `.env` (or set the same vars in Vercel) with the web app config.
-3. Paste `firestore.rules` into Firestore > Rules and publish.
-4. Sign in once, then in the console set your `users/{uid}.role` to `ADMIN` (only way to create the first admin).
-5. `npm install`, `npm test`, `npm run build`. Import the repo into Vercel; `vercel.json` handles SPA routing.
+1. Firebase console: buat proyek, aktifkan Email/Password dan Firestore, daftarkan web app.
+2. Salin `.env.example` ke `.env` (atau isi variabel yang sama di Vercel).
+3. Tempel `firestore.rules` di Firestore > Rules > Publish (ulangi setiap file ini berubah).
+4. Buat akun pertama di Authentication > Users, login sekali, lalu ubah `users/{uid}.role` menjadi `ADMIN` di console. Akun lain dibuat dari menu Pengguna.
+5. Vercel: import repo, isi 6 variabel `VITE_FIREBASE_*`. Tambahkan domain Vercel di Authentication > Settings > Authorized domains.
+6. `npm install`, `npm test`, `npm run build` (opsional, Vercel menjalankannya otomatis).
 
-## Decision: no Cloud Functions
-Cloud Functions need the Blaze plan. Transactions use client Firestore `runTransaction` (retry-safe, doc id = idempotency key) with rules as the backstop.
+## Keputusan arsitektur
+- **Tanpa Cloud Functions** (butuh paket Blaze). Pencatatan part memakai `runTransaction` Firestore: kebutuhan dihitung ulang dari snapshot BOM + jumlah produksi di dalam transaksi, ID transaksi = kunci idempotensi, total berjalan hanya bisa berubah sebesar transaksi yang dibuat bersamaan (dijaga Security Rules).
+- **Snapshot BOM per produksi** (satu dokumen). Perubahan BOM master tidak mengubah produksi yang sudah berjalan.
+- **Tanpa composite index.** Semua query memakai satu field (filter + urutan pada field yang sama), jadi tidak ada `firestore.indexes.json`.
+- **Transaksi tidak pernah dihapus.** Koreksi = dokumen `transactionAdjustments` (satu per transaksi) + audit log.
+- **Hemat kuota gratis.** Laporan memuat saat diminta; dashboard hanya mendengarkan data yang perlu; pencatatan biasa tidak menulis audit log terpisah (transaksi itu sendiri tidak bisa diubah).
+- **Nonaktifkan pengguna** ditegakkan di Security Rules (`active == false` menutup semua akses).
+
+## Struktur
+`src/lib` logika murni + tes, `src/pages` layar, `src/auth` login/peran, `public` PWA (manifest, ikon, `sw.js`), `docs` panduan dan daftar uji.
+
+## Cabang Git yang disarankan
+`main` = produksi (Vercel deploy otomatis), `development` = pengembangan, cabang fitur dari `development`. Jangan pernah commit `.env` atau kunci service account.
