@@ -26,3 +26,9 @@ dashboard, laporan, ekspor Excel, audit log, manajemen pengguna, PWA. Lihat `doc
 
 ## Cabang Git yang disarankan
 `main` = produksi (Vercel deploy otomatis), `development` = pengembangan, cabang fitur dari `development`. Jangan pernah commit `.env` atau kunci service account.
+
+## Design system (SHARP Industrial Modern)
+Token warna dan font ada di `src/index.css` (`@theme`): merah SHARP `#E60012` hanya untuk aksi utama dan penanda aktif, charcoal untuk teks dan navigasi, latar `#F4F5F7`.
+Kelas komponen (`.btn`, `.input`, `.chip`, `.pill`, `.surface`, `.tbl`) di CSS yang sama; komponen React bersama di `src/ui.tsx`
+(Pill/StatusPill, Progress, PageHeader, Section, Empty, Loading, ErrorNote, Highlight, Sheet, Toast, DialogProvider/useDialog).
+Dialog konfirmasi dan alasan memakai `useDialog()`, bukan `confirm()`/`prompt()` bawaan browser. Shift aktif ada di `src/lib/shift.ts`. Tidak ada logo SHARP resmi di repo; header memakai wordmark teks.

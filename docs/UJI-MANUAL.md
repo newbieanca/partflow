@@ -35,3 +35,14 @@ Centang setelah benar-benar dicoba. Siapkan 3 akun: ADMIN, LEADER, OPERATOR.
 ## Beban
 - [ ] Buka halaman Supply untuk produksi dengan 200+ part: tetap lancar saat mencari dan menggulir.
 - [ ] Lihat pemakaian di Firebase console, tab Usage: baca dan tulis harian jauh di bawah batas gratis (50.000 baca, 20.000 tulis).
+
+## Tampilan (redesain SHARP Industrial Modern)
+Belum diuji di browser nyata. Lakukan di Chrome dengan DevTools (Ctrl+Shift+M) dan di HP Android sungguhan.
+- [ ] Lebar 360, 390, 430 px: tidak ada konten terpotong atau menggulir menyamping; navigasi bawah tidak menutupi tombol terakhir di halaman panjang.
+- [ ] Lebar tablet (768 px) dan 1366 / 1920 px: sidebar kiri tampil, konten rapi di tengah, tabel Riwayat terbaca.
+- [ ] Supply: bar pencarian dan chip kategori tetap menempel di atas saat menggulir; tombol Ambil semua dan Sebagian mudah dijangkau satu tangan; panel Catat muncul dari bawah dan angka bisa diketik dengan keypad.
+- [ ] Over supply: peringatan merah tampil di dalam panel, tombol Ubah jumlah dan Catat over supply terbaca jelas.
+- [ ] Dashboard: empat angka utama tersusun 2x2 di HP dan 1 baris di desktop, tanpa garis ganda.
+- [ ] Huruf Inter tampil (bukan huruf bawaan sistem); angka sejajar rapi di kolom Sisa.
+- [ ] Layar login terbaca di HP dan desktop; masuk dengan Enter berfungsi.
+- [ ] Kontras teks mudah dibaca di bawah sinar terang pabrik (uji di lantai produksi bila bisa).

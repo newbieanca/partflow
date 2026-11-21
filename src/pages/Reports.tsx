@@ -1,3 +1,5 @@
+import { Download } from 'lucide-react'
+import { Empty, ErrorNote } from '../ui'
 import { useMemo, useState } from 'react'
 import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../lib/firebase'
@@ -33,15 +35,16 @@ export default function Reports() {
   const rows: Row[] = !data ? [] : tab === 'Per Model' ? agg(t => t.modelName, 'Model') : tab === 'Per Supply Category' ? agg(t => t.supplyCategoryName || 'Belum diatur', 'Supply Category') : tab === 'Per Line' ? agg(t => t.lineName, 'Line')
     : tab === 'Per Group' ? agg(t => t.groupName, 'Group') : tab === 'Per Shift' ? agg(t => `Shift ${t.shift}`, 'Shift') : tab === 'Kekurangan' ? progressRows('short') : progressRows('over')
   const cols = rows[0] ? Object.keys(rows[0]) : []
-  return <div className="space-y-4"><h2 className="text-lg font-bold">Laporan</h2>
-    <div className="bg-white rounded-xl shadow p-3 grid grid-cols-2 gap-2"><label className="text-xs">Dari<input type="date" className="w-full border rounded-lg p-2" value={from} onChange={e => setFrom(e.target.value)} /></label><label className="text-xs">Sampai<input type="date" className="w-full border rounded-lg p-2" value={to} onChange={e => setTo(e.target.value)} /></label>
-      <button disabled={busy} className="col-span-2 bg-blue-600 disabled:opacity-40 text-white rounded-lg p-3 font-semibold" onClick={load}>{busy ? 'Memuat…' : 'Tampilkan laporan'}</button></div>
-    {err && <p className="text-red-600">{err}</p>}
-    {data && <>
-      {data.capped && <p className="text-orange-600 text-sm">Transaksi melebihi {CAP}. Laporan transaksi hanya mencakup {CAP} terbaru; persempit rentang tanggal.</p>}
-      <p className="text-xs text-slate-500">{data.txs.length} transaksi · {prods.length} produksi (tidak termasuk yang dibatalkan). Transaksi yang dikoreksi tidak dihitung. Total qty menjumlah semua part (satuan campur). Laporan kekurangan dan over supply menunjukkan kondisi saat ini.</p>
-      <div className="flex gap-2 flex-wrap">{TABS.map(t => <button key={t} onClick={() => setTab(t)} className={`px-3 py-2 rounded-lg text-sm ${tab === t ? 'bg-[#0b1f3a] text-white' : 'bg-white border'}`}>{t}</button>)}</div>
-      <button disabled={!rows.length} className="border border-blue-600 text-blue-700 disabled:opacity-40 rounded-lg px-4 py-2 font-semibold" onClick={() => exportXlsx(`laporan-${tab.toLowerCase().replace(/\s+/g, '-')}-${from}_${to}`, rows, tab)}>Ekspor Excel ({rows.length} baris)</button>
-      {rows.length === 0 ? <p className="text-slate-500">Tidak ada data.</p> : <div className="overflow-x-auto bg-white rounded-xl shadow"><table className="text-sm w-full"><thead><tr className="text-left">{cols.map(c => <th key={c} className="p-2 whitespace-nowrap">{c}</th>)}</tr></thead><tbody>{rows.slice(0, 500).map((r, i) => <tr key={i} className="border-t">{cols.map(c => <td key={c} className="p-2">{r[c]}</td>)}</tr>)}</tbody></table></div>}
-      {rows.length > 500 && <p className="text-sm text-slate-500">Menampilkan 500 baris pertama; ekspor Excel memuat semua.</p>}</>}</div>
+  return <div>
+    <div className="flex flex-wrap items-end gap-2 mb-4"><div><label className="label" htmlFor="rf">Dari</label><input id="rf" type="date" className="input" value={from} onChange={e => setFrom(e.target.value)} /></div>
+      <div><label className="label" htmlFor="rt">Sampai</label><input id="rt" type="date" className="input" value={to} onChange={e => setTo(e.target.value)} /></div>
+      <button disabled={busy} className="btn btn-primary" onClick={load}>{busy ? 'Memuat…' : 'Tampilkan laporan'}</button></div>
+    {err && <ErrorNote>{err}</ErrorNote>}
+    {!data ? <div className="surface"><Empty title="Pilih rentang tanggal" hint="Laporan dimuat saat tombol ditekan agar hemat kuota." /></div> : <>
+      {data.capped && <ErrorNote>Transaksi melebihi {CAP}. Laporan transaksi hanya mencakup {CAP} terbaru; persempit rentang tanggal.</ErrorNote>}
+      <p className="text-xs text-mute my-2 px-1">{data.txs.length} transaksi · {prods.length} produksi (tanpa yang dibatalkan). Transaksi yang dikoreksi tidak dihitung. Total qty menjumlah semua part (satuan campur). Kekurangan dan over supply menunjukkan kondisi saat ini.</p>
+      <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-line mb-3">{TABS.map(t => <button key={t} onClick={() => setTab(t)} className={`px-3 min-h-11 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t ? 'border-sharp text-ink font-semibold' : 'border-transparent text-mute'}`}>{t}</button>)}</div>
+      <div className="flex items-center mb-3"><p className="flex-1 text-sm text-mute num">{rows.length} baris</p><button disabled={!rows.length} className="btn btn-secondary btn-sm" onClick={() => exportXlsx(`laporan-${tab.toLowerCase().replace(/\s+/g, '-')}-${from}_${to}`, rows, tab)}><Download size={15} />Ekspor Excel</button></div>
+      {rows.length === 0 ? <div className="surface"><Empty title="Tidak ada data" /></div> : <div className="surface overflow-x-auto"><table className="tbl"><thead><tr>{cols.map(c => <th key={c} className={typeof rows[0][c] === 'number' ? 'text-right' : ''}>{c}</th>)}</tr></thead><tbody>{rows.slice(0, 500).map((r, i) => <tr key={i}>{cols.map(c => <td key={c} className={typeof r[c] === 'number' ? 'text-right num' : ''}>{r[c]}</td>)}</tr>)}</tbody></table></div>}
+      {rows.length > 500 && <p className="text-xs text-mute mt-2 px-1">Menampilkan 500 baris pertama; ekspor Excel memuat semua.</p>}</>}</div>
 }
