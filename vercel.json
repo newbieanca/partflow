@@ -1,2 +1,2 @@
-{"rewrites":[{"source":"/((?!sw.js|manifest.webmanifest|icon-.*|apple-touch-icon.png|assets/).*)","destination":"/index.html"}],
+{"rewrites":[{"source":"/((?!sw.js|manifest.webmanifest|icon-.*|favicon.*|apple-touch-icon.png|brand/|assets/).*)","destination":"/index.html"}],
  "headers":[{"source":"/sw.js","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}

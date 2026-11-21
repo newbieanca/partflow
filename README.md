@@ -32,3 +32,7 @@ Token warna dan font ada di `src/index.css` (`@theme`): merah SHARP `#E60012` ha
 Kelas komponen (`.btn`, `.input`, `.chip`, `.pill`, `.surface`, `.tbl`) di CSS yang sama; komponen React bersama di `src/ui.tsx`
 (Pill/StatusPill, Progress, PageHeader, Section, Empty, Loading, ErrorNote, Highlight, Sheet, Toast, DialogProvider/useDialog).
 Dialog konfirmasi dan alasan memakai `useDialog()`, bukan `confirm()`/`prompt()` bawaan browser. Shift aktif ada di `src/lib/shift.ts`. Tidak ada logo SHARP resmi di repo; header memakai wordmark teks.
+
+## Logo dan aset merek
+Berkas logo dari pemilik ada di `public/brand/` (WebP transparan): `partflow-logo` (lambang + tulisan + tagline), `partflow-wordmark`, `partflow-mark`, dan `sharp-logo`.
+Logo PARTFLOW berwarna charcoal dan merah, jadi hanya dipakai di latar terang. Ikon PWA, favicon, dan apple-touch-icon dibuat dari lambang P itu (siluet putih di kotak merah SHARP).
