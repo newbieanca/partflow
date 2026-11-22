@@ -12,3 +12,13 @@ export function decideTake(required: number, taken: number, mode: TakeMode, qty:
   if (over && !confirmOver) throw new OverSupplyError({ required, taken, remaining, excess })
   return { qty: q, type: (over ? 'OVER_SUPPLY' : mode) as 'OVER_SUPPLY' | TakeMode, remaining }
 }
+
+/** Loss pack: the recorded quantity turns out to differ from what was actually in the box. Returns actual - recorded (negative = box was short). */
+export function lossPackDelta(recorded: number, actual: number) {
+  if (!Number.isFinite(actual) || actual < 0) throw new Error('Qty aktual tidak valid')
+  const d = remainingQty(actual, recorded)
+  if (d === 0) throw new Error('Qty aktual sama dengan yang tercatat')
+  return d
+}
+/** Effective quantity of a transaction = recorded quantity + its (single) loss-pack delta. The original record is never modified. */
+export const effectiveQty = (recorded: number, delta = 0) => sumQty(recorded, delta)

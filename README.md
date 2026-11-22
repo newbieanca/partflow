@@ -40,3 +40,7 @@ Logo PARTFLOW berwarna charcoal dan merah, jadi hanya dipakai di latar terang. I
 ## Akun supply bersama
 Tim supply memakai satu akun (role OPERATOR, mis. supply@wm.prod). Siapa yang bekerja ditentukan di perangkat masing-masing: nama, kategori supply, dan shift diisi di Beranda (disimpan di browser perangkat, `src/lib/supplyProfile.ts`).
 Nama itu dicatat sebagai operator di setiap transaksi. Jadwal produksi hanya dibuat dan diubah oleh LEADER/ADMIN; aturan Firestore membatasi OPERATOR hanya boleh menandai produksi ACTIVE menjadi COMPLETED.
+
+## Loss pack
+Isi box yang ternyata berbeda dari yang tercatat dikoreksi lewat `correctQty` (`src/lib/supply.ts`), bukan dengan mengubah transaksi. Satu dokumen `transactionAdjustments` bertipe `LOSS_PACK` (id `lp_<txId>`, sekali per transaksi) menyimpan selisih dan catatan; total berjalan bergeser persis sebesar selisih itu dalam satu commit atomik, dijaga Security Rules.
+Jumlah efektif = qty tercatat + selisih (`effectiveQty`). Pembatalan oleh Leader membalik jumlah efektif itu. Transaksi asli tidak pernah diubah atau dihapus.

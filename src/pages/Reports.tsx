@@ -6,6 +6,7 @@ import { db } from '../lib/firebase'
 import { useProgress } from '../lib/useProgress'
 import { useCollection } from '../lib/useCollection'
 import { aggregate, partProgress } from '../lib/report'
+import { effectiveQty } from '../lib/takeLogic'
 import { exportXlsx } from '../lib/exportXlsx'
 import { todayStr } from '../lib/production'
 import type { P } from './Production'
@@ -25,7 +26,8 @@ export default function Reports() {
         getDocs(query(collection(db, 'supplyTransactions'), where('createdAt', '>=', a), where('createdAt', '<', b), orderBy('createdAt', 'desc'), limit(CAP + 1))),
         getDocs(query(collection(db, 'transactionAdjustments'), where('txCreatedAt', '>=', a), where('txCreatedAt', '<', b), orderBy('txCreatedAt', 'desc'), limit(CAP + 1))),
         getDocs(query(collection(db, 'productions'), where('date', '>=', from), where('date', '<=', to), orderBy('date')))])
-      setData({ txs: t.docs.slice(0, CAP).map(d => ({ id: d.id, ...(d.data() as Omit<Tx, 'id'>) })), rev: new Set(r.docs.map(d => d.data().txId as string)), prods: p.docs.map(d => ({ id: d.id, ...(d.data() as Omit<P, 'id'>) })), capped: t.size > CAP })
+      const adj = r.docs.map(d => d.data()); const delta = new Map(adj.filter(a => a.type === 'LOSS_PACK').map(a => [a.txId as string, a.qty as number]))
+      setData({ txs: t.docs.slice(0, CAP).map(d => { const x = d.data() as Omit<Tx, 'id'>; return { id: d.id, ...x, qty: effectiveQty(x.qty, delta.get(d.id) ?? 0) } }), rev: new Set(adj.filter(a => a.type === 'REVERSAL').map(a => a.txId as string)), prods: p.docs.map(d => ({ id: d.id, ...(d.data() as Omit<P, 'id'>) })), capped: t.size > CAP })
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
   const prods = useMemo(() => (data?.prods ?? []).filter(p => p.status !== 'CANCELLED'), [data]); const { lines, taken } = useProgress(prods.map(p => p.id))

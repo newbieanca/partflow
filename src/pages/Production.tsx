@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore'
-import { CalendarDays, PackageCheck, Plus, SlidersHorizontal } from 'lucide-react'
+import { CalendarDays, PackageCheck, Pencil, Plus, SlidersHorizontal } from 'lucide-react'
 import { db } from '../lib/firebase'
 import { useCollection } from '../lib/useCollection'
 import { audit } from '../lib/audit'
@@ -10,6 +10,7 @@ import { overSupplyAfterChange, todayStr, validateProduction, type SnapLine } fr
 import { useProgress } from '../lib/useProgress'
 import { partProgress, summarizeProgress } from '../lib/report'
 import { Empty, ErrorNote, Pill, Progress, Sheet, StatusPill, Toast, useDialog } from '../ui'
+import { LossPackSheet } from '../components/LossPack'
 interface Named { name: string; active?: boolean; productCategoryId?: string }
 interface Header { modelId: string; version: number; active: boolean }
 type Status = 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
@@ -31,7 +32,7 @@ export default function Production() {
   const groups = useCollection<Named>('operatorGroups'); const boms = useCollection<Header>('bomHeaders')
   const [filterDate, setFilterDate] = useState(todayStr()); const { items, err } = useProductions(filterDate)
   const [fCat, setFCat] = useState(''); const [fLine, setFLine] = useState(''); const [fGroup, setFGroup] = useState(''); const [fStatus, setFStatus] = useState(''); const [fModel, setFModel] = useState(''); const [showF, setShowF] = useState(false)
-  const [f, setF] = useState(empty); const [editing, setEditing] = useState<P | null>(null); const [open, setOpen] = useState(false); const [msg, setMsg] = useState(''); const [formErr, setFormErr] = useState(''); const [busy, setBusy] = useState(false)
+  const [f, setF] = useState(empty); const [editing, setEditing] = useState<P | null>(null); const [open, setOpen] = useState(false); const [msg, setMsg] = useState(''); const [formErr, setFormErr] = useState(''); const [busy, setBusy] = useState(false); const [lpProd, setLpProd] = useState<P | null>(null)
   useEffect(() => { if (sp.get('baru')) { if (!isSupply) setOpen(true); setSp({}, { replace: true }) } }, [sp, setSp, isSupply])
   const act = <T extends Named>(a: T[]) => a.filter(x => x.active !== false).sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true }))
   const readyModels = act(models.items).filter(m => boms.items.some(h => h.modelId === m.id && h.active))
@@ -115,6 +116,7 @@ export default function Production() {
             <div className="text-right shrink-0"><p className="text-3xl font-bold tracking-tight num leading-none">{p.qty.toLocaleString('id-ID')}</p><p className="text-xs text-mute mt-1">unit</p></div></div>
           <div className="flex items-center gap-1 mt-3 -mb-1 flex-wrap">
             {p.status === 'ACTIVE' && <><Link to={`/supply?prod=${p.id}&date=${p.date}`} className="btn btn-secondary btn-sm"><PackageCheck size={15} />Supply</Link>{!isSupply && <button className="btn btn-ghost btn-sm" onClick={() => startEdit(p)}>Ubah</button>}<button className="btn btn-ghost btn-sm" onClick={() => setStatus(p, 'COMPLETED')}>Selesai</button>{!isSupply && <button className="btn btn-ghost btn-sm !text-bad" onClick={() => setStatus(p, 'CANCELLED')}>Batalkan</button>}</>}
+            {isSupply && p.status !== 'CANCELLED' && <button className="btn btn-secondary btn-sm" onClick={() => setLpProd(p)}><Pencil size={14} />Edit</button>}
             {p.status !== 'ACTIVE' && canReopen && <button className="btn btn-ghost btn-sm" onClick={() => setStatus(p, 'ACTIVE')}>Buka kembali</button>}
             <span className="ml-auto text-[11px] text-mute">BOM v{p.bomVersion} · {p.createdByName}</span></div></li> })}</ul>}
     <Sheet open={open} onClose={reset} title={editing ? 'Ubah produksi' : 'Produksi baru'}>
@@ -131,5 +133,6 @@ export default function Production() {
         {field('Catatan (opsional)', <input className="input" value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} />, 'col-span-2')}
         {formErr && <div className="col-span-2"><ErrorNote>{formErr}</ErrorNote></div>}
         <button disabled={busy} className="btn btn-primary btn-lg col-span-2" onClick={submit}>{busy ? 'Menyimpan…' : editing ? 'Simpan perubahan' : 'Simpan produksi'}</button></div></Sheet>
+    <LossPackSheet open={!!lpProd} onClose={() => setLpProd(null)} productionId={lpProd?.id ?? ''} title={lpProd ? `Edit loss pack · ${lpProd.modelName}` : ''} />
     <Toast msg={msg} onClose={() => setMsg('')} /></div>
 }

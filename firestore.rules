@@ -58,15 +58,27 @@ service cloud.firestore {
       allow create, update: if isStaff()
         && id == request.resource.data.productionId + '_' + request.resource.data.partId
         && ((request.resource.data.lastKind == 'TX' && totalsMove('supplyTransactions', request.resource.data.lastId))
-         || (request.resource.data.lastKind == 'ADJ' && leaderUp() && totalsMove('transactionAdjustments', request.resource.data.lastId)));
+         || (request.resource.data.lastKind == 'ADJ' && isStaff() && totalsMove('transactionAdjustments', request.resource.data.lastId)));
       allow delete: if false;
     }
+    function lpPath(txId) { return /databases/$(db)/documents/transactionAdjustments/$('lp_' + txId); }
+    // REVERSAL: LEADER/ADMIN, reverses what is currently counted (recorded qty + loss-pack delta).
+    // LOSS_PACK: any active staff, one per transaction (id lp_<txId>), note required, only if the transaction was not reversed.
     match /transactionAdjustments/{id} {
       allow read: if isStaff();
-      allow create: if leaderUp() && request.resource.data.reason is string && request.resource.data.reason.size() > 2
-        && id == 'rev_' + request.resource.data.txId
-        && exists(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId))
-        && request.resource.data.qty == -get(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId)).data.qty;
+      allow create: if exists(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId)) && (
+        (leaderUp() && request.resource.data.type == 'REVERSAL' && request.resource.data.reason is string && request.resource.data.reason.size() > 2
+          && id == 'rev_' + request.resource.data.txId
+          && math.abs(request.resource.data.qty + get(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId)).data.qty + (exists(lpPath(request.resource.data.txId)) ? get(lpPath(request.resource.data.txId)).data.qty : 0)) < 0.000001)
+        || (isStaff() && request.resource.data.type == 'LOSS_PACK' && request.resource.data.note is string && request.resource.data.note.size() > 2
+          && id == 'lp_' + request.resource.data.txId
+          && !exists(/databases/$(db)/documents/transactionAdjustments/$('rev_' + request.resource.data.txId))
+          && request.resource.data.qty is number && request.resource.data.qty != 0
+          && request.resource.data.before.qty == get(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId)).data.qty
+          && request.resource.data.after.qty >= 0
+          && math.abs(request.resource.data.after.qty - (request.resource.data.before.qty + request.resource.data.qty)) < 0.000001
+          && request.resource.data.productionId == get(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId)).data.productionId
+          && request.resource.data.partId == get(/databases/$(db)/documents/supplyTransactions/$(request.resource.data.txId)).data.partId));
       allow update, delete: if false;
     }
     match /auditLogs/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if false; }

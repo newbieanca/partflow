@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { decideTake, OverSupplyError } from './takeLogic'
+import { decideTake, effectiveQty, lossPackDelta, OverSupplyError } from './takeLogic'
 describe('Take All', () => {
   it('proposes the current remaining, not the original requirement', () => {
     expect(decideTake(100, 60, 'TAKE_ALL', 999, false)).toMatchObject({ qty: 40, type: 'TAKE_ALL' })
@@ -29,4 +29,14 @@ describe('Over-supply', () => {
   it('saves as OVER_SUPPLY once confirmed', () => { expect(decideTake(100, 85, 'PARTIAL', 20, true)).toMatchObject({ qty: 20, type: 'OVER_SUPPLY' }) })
   it('any take after completion is over-supply', () => { expect(() => decideTake(100, 100, 'PARTIAL', 1, false)).toThrow(OverSupplyError) })
   it('decimals do not cause false over-supply', () => { expect(decideTake(0.3, 0.2, 'PARTIAL', 0.1, false).type).toBe('PARTIAL') })
+})
+
+describe('Loss pack correction', () => {
+  it('delta is actual minus recorded', () => { expect(lossPackDelta(100, 97)).toBe(-3); expect(lossPackDelta(50, 52)).toBe(2) })
+  it('rejects no-change, negative and NaN actuals', () => { expect(() => lossPackDelta(100, 100)).toThrow('sama'); expect(() => lossPackDelta(100, -1)).toThrow(); expect(() => lossPackDelta(100, NaN)).toThrow() })
+  it('effective quantity keeps the original untouched and avoids float noise', () => { expect(effectiveQty(100, -3)).toBe(97); expect(effectiveQty(0.3, -0.1)).toBe(0.2); expect(effectiveQty(40)).toBe(40) })
+  it('a corrected box that was short reopens the remaining requirement', () => {
+    // required 100, box recorded 100 (taken 100) but really had 97 -> taken 97, remaining 3
+    const delta = lossPackDelta(100, 97); expect(decideTake(100, 100 + delta, 'TAKE_ALL', 0, false)).toMatchObject({ qty: 3 })
+  })
 })

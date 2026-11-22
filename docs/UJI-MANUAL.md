@@ -64,3 +64,16 @@ Belum diuji di browser nyata. Lakukan di Chrome dengan DevTools (Ctrl+Shift+M) d
 - [ ] Supply: hanya part kategori yang dipilih yang tampil, tanpa chip kategori lain. Mengubah kategori di Beranda langsung mengubah daftar part.
 - [ ] Nama yang diisi muncul sebagai operator di Riwayat dan di aktivitas terbaru, bukan "Supply WM".
 - [ ] Kosongkan nama lalu buka Supply: muncul ajakan melengkapi data di Beranda dan pencatatan ditolak.
+
+## Loss pack (koreksi isi box)
+Siapkan satu produksi dengan satu part: kebutuhan 100, catat pengambilan 100.
+- [ ] Produksi: kartu model (akun supply) punya tombol **Edit**, juga untuk produksi yang sudah Selesai. Tombol Ubah dan Batalkan tidak ada.
+- [ ] Edit: pilih pengambilan 100, isi qty aktual 97 dan catatan. Tombol Simpan mati sampai qty berubah dan catatan terisi (minimal 3 huruf).
+- [ ] Setelah disimpan: Supply menunjukkan diambil 97, sisa 3; riwayat part menampilkan "97 (semula 100)" dan catatan loss pack beserta nama pengoreksi.
+- [ ] Ambil Semua pada part itu sekarang mengusulkan 3.
+- [ ] Mengedit transaksi yang sama kedua kali: ditolak ("sudah pernah dikoreksi").
+- [ ] Riwayat: qty menampilkan 97 dengan keterangan "semula 100"; ekspor Excel punya kolom "Qty awal" dan "Catatan loss pack". Transaksi yang dikoreksi loss pack TIDAK tampil dicoret (hanya yang dibatalkan Leader yang dicoret).
+- [ ] Laporan per model/shift menghitung 97, bukan 100.
+- [ ] Leader membatalkan (Koreksi) transaksi yang sudah dikoreksi loss pack: total kembali tepat (tidak minus, tidak sisa 3).
+- [ ] Audit Log (Admin) memuat TX_LOSS_PACK dengan nilai sebelum dan sesudah serta catatannya.
+- [ ] Akun supply mencoba mengubah transaksi langsung lewat konsol browser: ditolak (transaksi asli tidak bisa diubah).

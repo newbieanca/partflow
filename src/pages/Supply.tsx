@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { AlertTriangle, ChevronDown, ChevronLeft, Search } from 'lucide-react'
 import { db } from '../lib/firebase'
 import { useCollection } from '../lib/useCollection'
@@ -9,6 +9,9 @@ import { remainingQty, requiredQty, sumQty, supplyStatus, takeAllQty } from '../
 import { OverSupplyError, recordTake, reverseTransaction, type OverInfo } from '../lib/supply'
 import { todayStr, type SnapLine } from '../lib/production'
 import { setShift, useShift } from '../lib/shift'
+import { useLive } from '../lib/useLive'
+import { effectiveQty } from '../lib/takeLogic'
+import { LossPackSheet } from '../components/LossPack'
 import { when, type Ts } from '../lib/format'
 import { Empty, Highlight, Pill, Progress, Sheet, StatusPill, Toast, useDialog } from '../ui'
 import { useProgress } from '../lib/useProgress'
@@ -16,13 +19,8 @@ import { partProgress, summarizeProgress } from '../lib/report'
 import { matchesCategory, NO_CATEGORY, useOpCat, useOpName } from '../lib/supplyProfile'
 import { useProductions, type P } from './Production'
 interface Tx { id: string; partId: string; qty: number; shift: number; type: string; operatorName: string; createdAt: Ts }
-interface Adj { id: string; txId: string }
+interface Adj { id: string; txId: string; type: string; qty: number; note?: string; userName?: string }
 const ms = (t: Ts) => t?.toDate ? t.toDate().getTime() : Infinity
-function useLive<T>(coll: string, productionId: string) {
-  const [items, setItems] = useState<(T & { id: string })[]>([])
-  useEffect(() => { setItems([]); if (!productionId) return; return onSnapshot(query(collection(db, coll), where('productionId', '==', productionId)), s => setItems(s.docs.map(d => ({ id: d.id, ...(d.data() as T) })))) }, [coll, productionId])
-  return items
-}
 type Take = { partId: string; mode: 'ALL' | 'PARTIAL'; value: string; over?: OverInfo }
 export default function Supply() {
   const { user, role } = useAuth(); const leaderUp = role === 'ADMIN' || role === 'LEADER'; const isSupply = role === 'OPERATOR'; const opName = useOpName().trim(); const opCat = useOpCat(); const uname = isSupply && opName ? opName : (user?.displayName ?? user?.email ?? ''); const { prompt } = useDialog(); const [sp] = useSearchParams()
@@ -33,14 +31,14 @@ export default function Supply() {
   const [lines, setLines] = useState<SnapLine[]>([])
   useEffect(() => { setLines([]); if (!prodId) return; return onSnapshot(doc(db, 'productionBomSnapshots', prodId), s => setLines(s.exists() ? (s.data().lines as SnapLine[]) : [])) }, [prodId])
   const txs = useLive<Tx>('supplyTransactions', prodId); const adjs = useLive<Adj>('transactionAdjustments', prodId)
-  const reversed = useMemo(() => new Set(adjs.map(a => a.txId)), [adjs])
+  const reversed = useMemo(() => new Set(adjs.filter(a => a.type === 'REVERSAL').map(a => a.txId)), [adjs]); const lpMap = useMemo(() => new Map(adjs.filter(a => a.type === 'LOSS_PACK').map(a => [a.txId, a])), [adjs])
   const rows = useMemo(() => {
     if (!prod) return []
     const by = new Map<string, { taken: number; shifts: Record<number, number>; list: Tx[] }>()
-    txs.forEach(t => { const e = by.get(t.partId) ?? { taken: 0, shifts: {}, list: [] }; e.list.push(t); if (!reversed.has(t.id)) { e.taken = sumQty(e.taken, t.qty); e.shifts[t.shift] = sumQty(e.shifts[t.shift] ?? 0, t.qty) } by.set(t.partId, e) })
+    txs.forEach(t => { const e = by.get(t.partId) ?? { taken: 0, shifts: {}, list: [] }; e.list.push(t); if (!reversed.has(t.id)) { const q = effectiveQty(t.qty, lpMap.get(t.id)?.qty ?? 0); e.taken = sumQty(e.taken, q); e.shifts[t.shift] = sumQty(e.shifts[t.shift] ?? 0, q) } by.set(t.partId, e) })
     return lines.map(l => { const required = requiredQty(l.qtyPerUnit, prod.qty); const e = by.get(l.partId) ?? { taken: 0, shifts: {}, list: [] as Tx[] }
       return { ...l, required, taken: e.taken, remaining: remainingQty(required, e.taken), status: supplyStatus(required, e.taken), shifts: e.shifts, list: [...e.list].sort((a, b) => ms(b.createdAt) - ms(a.createdAt)) } }).sort((a, b) => a.partCode.localeCompare(b.partCode))
-  }, [prod, lines, txs, reversed])
+  }, [prod, lines, txs, reversed, lpMap])
   type Row = (typeof rows)[number]
   const catName = (id: string) => cats.items.find(c => c.id === id)?.name ?? ''
   const present = useMemo(() => [...new Set(rows.map(r => r.supplyCategoryId))], [rows])
@@ -48,7 +46,7 @@ export default function Supply() {
   const shown = rows.filter(r => (isSupply ? matchesCategory(opCat, r.supplyCategoryId) : (catF === '__all' || r.supplyCategoryId === catF)) && (!pending || r.status !== 'COMPLETED') && tokens.every(t => `${r.partCode} ${r.partName}`.toLowerCase().includes(t)))
   const count = (s: string) => rows.filter(r => r.status === s).length
   const [take, setTake] = useState<Take | null>(null); const cur = take ? rows.find(r => r.partId === take.partId) : undefined
-  const [openPart, setOpenPart] = useState(''); const [busy, setBusy] = useState(false); const [toast, setToast] = useState<{ m: string; t: 'ok' | 'bad' }>({ m: '', t: 'ok' }); const keys = useRef<Record<string, string>>({})
+  const [openPart, setOpenPart] = useState(''); const [lpPart, setLpPart] = useState(''); const [busy, setBusy] = useState(false); const [toast, setToast] = useState<{ m: string; t: 'ok' | 'bad' }>({ m: '', t: 'ok' }); const keys = useRef<Record<string, string>>({})
   const go = async (r: Row, mode: 'TAKE_ALL' | 'PARTIAL', qty: number, confirmOver: boolean) => {
     if (!shift) return setToast({ m: 'Pilih shift aktif Anda dulu.', t: 'bad' })
     if (isSupply && !opName) return setToast({ m: 'Isi nama Anda di Beranda dulu.', t: 'bad' })
@@ -101,8 +99,9 @@ export default function Supply() {
             {active && <div className="grid grid-cols-[1fr_auto] gap-2 mt-3"><button disabled={busy || !ta} className="btn btn-primary" onClick={() => { delete keys.current[r.partId]; setTake({ partId: r.partId, mode: 'ALL', value: '' }) }}>{ta ? `Ambil semua · ${ta}` : 'Sudah penuh'}</button>
               <button disabled={busy} className="btn btn-secondary" onClick={() => { delete keys.current[r.partId]; setTake({ partId: r.partId, mode: 'PARTIAL', value: '' }) }}>Sebagian</button></div>}
             <button className="mt-2 inline-flex items-center gap-1 text-xs text-mute font-medium" aria-expanded={open} onClick={() => setOpenPart(open ? '' : r.partId)}>Riwayat ({r.list.length})<ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} /></button>
-            {open && <ul className="mt-1 text-sm divide-y divide-line animate-fade">{r.list.length === 0 && <li className="py-2 text-mute">Belum ada pengambilan.</li>}{r.list.map(t => <li key={t.id} className="py-2 flex gap-2 items-center"><div className={`flex-1 min-w-0 ${reversed.has(t.id) ? 'line-through text-mute' : ''}`}><span className="font-semibold num">{t.qty}</span> · Shift {t.shift} · {t.operatorName}<div className="text-xs text-mute">{when(t.createdAt)}</div></div>
-              {t.type === 'OVER_SUPPLY' && <Pill tone="bad">Over</Pill>}{reversed.has(t.id) ? <Pill>Dikoreksi</Pill> : leaderUp && <button className="btn btn-ghost btn-sm" onClick={() => correct(t.id)}>Koreksi</button>}</li>)}</ul>}</li> })}</ul>}
+            {r.list.length > 0 && <button className="mt-2 ml-4 text-xs text-sharp font-medium" onClick={() => setLpPart(r.partId)}>Edit loss pack</button>}
+            {open && <ul className="mt-1 text-sm divide-y divide-line animate-fade">{r.list.length === 0 && <li className="py-2 text-mute">Belum ada pengambilan.</li>}{r.list.map(t => <li key={t.id} className="py-2 flex gap-2 items-center"><div className="flex-1 min-w-0"><div className={reversed.has(t.id) ? 'line-through text-mute' : ''}><span className="font-semibold num">{effectiveQty(t.qty, lpMap.get(t.id)?.qty ?? 0)}</span>{lpMap.has(t.id) && <span className="text-xs text-mute num"> (semula {t.qty})</span>} · Shift {t.shift} · {t.operatorName}</div><div className="text-xs text-mute">{when(t.createdAt)}</div>{lpMap.get(t.id) && <div className="text-xs text-amber-800">Loss pack: {lpMap.get(t.id)!.note}{lpMap.get(t.id)!.userName && ` (${lpMap.get(t.id)!.userName})`}</div>}</div>
+              {t.type === 'OVER_SUPPLY' && <Pill tone="bad">Over</Pill>}{lpMap.has(t.id) && <Pill tone="warn">Loss pack</Pill>}{reversed.has(t.id) ? <Pill>Dikoreksi</Pill> : leaderUp && <button className="btn btn-ghost btn-sm" onClick={() => correct(t.id)}>Koreksi</button>}</li>)}</ul>}</li> })}</ul>}
       {shown.length > 150 && <p className="text-xs text-mute mt-2 px-1">Menampilkan 150 pertama. Persempit dengan pencarian atau kategori.</p>}</>}
 
     <Sheet open={!!take && !!cur} onClose={closeSheet} title={cur ? cur.partCode : ''}>
@@ -120,6 +119,7 @@ export default function Supply() {
           <input id="qty" autoFocus type="number" inputMode="decimal" min="0" step="any" className="input !text-3xl !font-bold !min-h-16 text-center num mb-4" placeholder="0" value={take.value} onChange={e => { delete keys.current[cur.partId]; setTake({ ...take, value: e.target.value }) }} onKeyDown={e => e.key === 'Enter' && Number(take.value) > 0 && go(cur, 'PARTIAL', Number(take.value), false)} />
           <button disabled={busy || !shift || !(Number(take.value) > 0)} className="btn btn-primary btn-lg w-full" onClick={() => go(cur, 'PARTIAL', Number(take.value), false)}>{busy ? 'Menyimpan…' : 'Catat pengambilan'}</button></>}
         {!shift && <p className="text-sm text-amber-800 mt-3">Pilih shift Anda dulu di bagian atas halaman.</p>}</div>}</Sheet>
+    <LossPackSheet open={!!lpPart} onClose={() => setLpPart('')} productionId={prodId} partId={lpPart} title="Edit loss pack" />
     <Toast msg={toast.m} tone={toast.t} onClose={() => setToast({ m: '', t: 'ok' })} /></div>
 }
 
