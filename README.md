@@ -36,3 +36,7 @@ Dialog konfirmasi dan alasan memakai `useDialog()`, bukan `confirm()`/`prompt()`
 ## Logo dan aset merek
 Berkas logo dari pemilik ada di `public/brand/` (WebP transparan): `partflow-logo` (lambang + tulisan + tagline), `partflow-wordmark`, `partflow-mark`, dan `sharp-logo`.
 Logo PARTFLOW berwarna charcoal dan merah, jadi hanya dipakai di latar terang. Ikon PWA, favicon, dan apple-touch-icon dibuat dari lambang P itu (siluet putih di kotak merah SHARP).
+
+## Akun supply bersama
+Tim supply memakai satu akun (role OPERATOR, mis. supply@wm.prod). Siapa yang bekerja ditentukan di perangkat masing-masing: nama, kategori supply, dan shift diisi di Beranda (disimpan di browser perangkat, `src/lib/supplyProfile.ts`).
+Nama itu dicatat sebagai operator di setiap transaksi. Jadwal produksi hanya dibuat dan diubah oleh LEADER/ADMIN; aturan Firestore membatasi OPERATOR hanya boleh menandai produksi ACTIVE menjadi COMPLETED.

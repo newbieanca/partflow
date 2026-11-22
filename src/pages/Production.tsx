@@ -26,13 +26,13 @@ export function useProductions(date: string) {
   return { items, err }
 }
 export default function Production() {
-  const { user, role } = useAuth(); const canReopen = role === 'ADMIN' || role === 'LEADER'; const { confirm, prompt } = useDialog(); const [sp, setSp] = useSearchParams()
+  const { user, role } = useAuth(); const canReopen = role === 'ADMIN' || role === 'LEADER'; const isSupply = role === 'OPERATOR'; const { confirm, prompt } = useDialog(); const [sp, setSp] = useSearchParams()
   const models = useCollection<Named>('models'); const cats = useCollection<Named>('productCategories'); const lines = useCollection<Named>('productionLines')
   const groups = useCollection<Named>('operatorGroups'); const boms = useCollection<Header>('bomHeaders')
   const [filterDate, setFilterDate] = useState(todayStr()); const { items, err } = useProductions(filterDate)
   const [fCat, setFCat] = useState(''); const [fLine, setFLine] = useState(''); const [fGroup, setFGroup] = useState(''); const [fStatus, setFStatus] = useState(''); const [fModel, setFModel] = useState(''); const [showF, setShowF] = useState(false)
   const [f, setF] = useState(empty); const [editing, setEditing] = useState<P | null>(null); const [open, setOpen] = useState(false); const [msg, setMsg] = useState(''); const [formErr, setFormErr] = useState(''); const [busy, setBusy] = useState(false)
-  useEffect(() => { if (sp.get('baru')) { setOpen(true); setSp({}, { replace: true }) } }, [sp, setSp])
+  useEffect(() => { if (sp.get('baru')) { if (!isSupply) setOpen(true); setSp({}, { replace: true }) } }, [sp, setSp, isSupply])
   const act = <T extends Named>(a: T[]) => a.filter(x => x.active !== false).sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true }))
   const readyModels = act(models.items).filter(m => boms.items.some(h => h.modelId === m.id && h.active))
   const model = editing ? models.items.find(m => m.id === editing.modelId) : models.items.find(m => m.name.toLowerCase() === f.modelText.trim().toLowerCase())
@@ -91,7 +91,7 @@ export default function Production() {
   const field = (label: string, el: React.ReactNode, cls = '') => <div className={cls}><label className="label">{label}</label>{el}</div>
   return <div>
     <div className="flex items-center gap-2 mb-4"><div className="flex-1"><p className="text-sm text-mute"><CalendarDays size={15} className="inline -mt-0.5 mr-1" />{filterDate ? new Date(filterDate + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }) : '200 produksi terbaru'}</p></div>
-      <button className="btn btn-primary" onClick={() => setOpen(true)}><Plus size={18} />Produksi baru</button></div>
+      {!isSupply && <button className="btn btn-primary" onClick={() => setOpen(true)}><Plus size={18} />Produksi baru</button>}</div>
     <div className="flex flex-wrap items-center gap-2 mb-3">
       <input aria-label="Tanggal" type="date" className="input !w-auto" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
       {[['', 'Semua'], ['ACTIVE', 'Aktif'], ['COMPLETED', 'Selesai'], ['CANCELLED', 'Batal']].map(([v, l]) => <button key={v} className={`chip ${fStatus === v ? 'chip-on' : ''}`} onClick={() => setFStatus(v)}>{l}</button>)}
@@ -103,7 +103,7 @@ export default function Production() {
       <select className="input" value={fGroup} onChange={e => setFGroup(e.target.value)}><option value="">Semua group</option>{act(groups.items).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
       <button className="btn btn-ghost" onClick={() => setFilterDate('')}>Semua tanggal</button></div>}
     {err && <ErrorNote>{err}</ErrorNote>}{formErr && !open && <ErrorNote>{formErr}</ErrorNote>}
-    {shown.length === 0 ? <div className="surface"><Empty title="Belum ada produksi" hint="Tidak ada produksi untuk filter ini. Buat yang baru dengan tombol di atas." /></div> :
+    {shown.length === 0 ? <div className="surface"><Empty title="Belum ada produksi" hint={isSupply ? 'Tidak ada produksi untuk filter ini. Jadwal diinput oleh Leader atau Admin.' : 'Tidak ada produksi untuk filter ini. Buat yang baru dengan tombol di atas.'} /></div> :
       <ul className="surface divide-y divide-line overflow-hidden">{shown.map(p => {
         const s = summarizeProgress(partProgress(snaps[p.id] ?? [], p.qty, tk[p.id] ?? {})); const done = s.completed + s.over; const v = s.items ? done * 100 / s.items : 0
         return <li key={p.id} className="relative pl-5 pr-4 py-4"><span className={`absolute left-0 top-0 bottom-0 w-1 ${RAIL[p.status]}`} />
@@ -114,7 +114,7 @@ export default function Production() {
             {s.items > 0 && <div className="mt-3 flex items-center gap-3"><div className="flex-1"><Progress value={v} tone={v === 100 ? 'ok' : 'sharp'} /></div><span className="text-xs text-mute num whitespace-nowrap">{done}/{s.items} part</span></div>}</div>
             <div className="text-right shrink-0"><p className="text-3xl font-bold tracking-tight num leading-none">{p.qty.toLocaleString('id-ID')}</p><p className="text-xs text-mute mt-1">unit</p></div></div>
           <div className="flex items-center gap-1 mt-3 -mb-1 flex-wrap">
-            {p.status === 'ACTIVE' && <><Link to={`/supply?prod=${p.id}&date=${p.date}`} className="btn btn-secondary btn-sm"><PackageCheck size={15} />Supply</Link><button className="btn btn-ghost btn-sm" onClick={() => startEdit(p)}>Ubah</button><button className="btn btn-ghost btn-sm" onClick={() => setStatus(p, 'COMPLETED')}>Selesai</button><button className="btn btn-ghost btn-sm !text-bad" onClick={() => setStatus(p, 'CANCELLED')}>Batalkan</button></>}
+            {p.status === 'ACTIVE' && <><Link to={`/supply?prod=${p.id}&date=${p.date}`} className="btn btn-secondary btn-sm"><PackageCheck size={15} />Supply</Link>{!isSupply && <button className="btn btn-ghost btn-sm" onClick={() => startEdit(p)}>Ubah</button>}<button className="btn btn-ghost btn-sm" onClick={() => setStatus(p, 'COMPLETED')}>Selesai</button>{!isSupply && <button className="btn btn-ghost btn-sm !text-bad" onClick={() => setStatus(p, 'CANCELLED')}>Batalkan</button>}</>}
             {p.status !== 'ACTIVE' && canReopen && <button className="btn btn-ghost btn-sm" onClick={() => setStatus(p, 'ACTIVE')}>Buka kembali</button>}
             <span className="ml-auto text-[11px] text-mute">BOM v{p.bomVersion} · {p.createdByName}</span></div></li> })}</ul>}
     <Sheet open={open} onClose={reset} title={editing ? 'Ubah produksi' : 'Produksi baru'}>

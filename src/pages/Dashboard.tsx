@@ -12,12 +12,13 @@ import { useShift } from '../lib/shift'
 import { when, type Ts } from '../lib/format'
 import { Empty, Pill, Progress, Section } from '../ui'
 import { useProductions } from './Production'
+import SupplyHome from './SupplyHome'
 interface Named { name: string }
 interface Tx { id: string; createdAt: Ts; modelName: string; lineName: string; groupName: string; supplyCategoryName: string; partCode: string; qty: number; unit: string; operatorName: string; shift: number; type: string }
 const greeting = () => { const h = new Date().getHours(); return h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 19 ? 'Selamat sore' : 'Selamat malam' }
 const Kpi = ({ label, value, sub, tone = '', edge = '' }: { label: string; value: string | number; sub?: string; tone?: string; edge?: string }) =>
   <div className={`px-4 py-4 md:px-6 ${edge}`}><p className="text-xs text-mute">{label}</p><p className={`text-3xl md:text-4xl font-bold tracking-tight num mt-1 ${tone}`}>{value}</p>{sub && <p className="text-xs text-mute mt-1">{sub}</p>}</div>
-export default function Dashboard() {
+function LeaderDashboard() {
   const { user } = useAuth(); const shift = useShift()
   const cats = useCollection<Named>('productCategories'); const lns = useCollection<Named>('productionLines'); const grps = useCollection<Named>('operatorGroups'); const sc = useCollection<Named>('supplyCategories')
   const [date, setDate] = useState(todayStr()); const { items: prods } = useProductions(date)
@@ -83,3 +84,6 @@ export default function Dashboard() {
           {lagging.map(({ p, s }) => <Link key={p.id} to={`/supply?prod=${p.id}&date=${p.date}`} className="flex items-center gap-3 px-4 py-3 hover:bg-canvas/60"><span className="w-2 h-2 rounded-full bg-warn shrink-0" /><div className="text-sm flex-1 min-w-0"><p className="font-semibold truncate">{p.modelName}</p><p className="text-xs text-mute">{s.items - s.completed - s.over} part belum selesai</p></div><ChevronRight size={16} className="text-mute" /></Link>)}</div></Section>}
         <Section title="Produksi per line">{byLine.length === 0 ? <p className="text-sm text-mute px-1">-</p> : <div className="surface p-4 space-y-4">{byLine.map(([k, v]) => <div key={k}><div className="flex justify-between text-sm mb-1.5"><span className="font-semibold">{k}</span><span className="text-mute num">{v.n} produksi · {v.u.toLocaleString('id-ID')} unit</span></div><Progress value={v.u * 100 / maxU} tone="ink" /></div>)}</div>}</Section></div></div></div>
 }
+
+/** Supply (OPERATOR) gets the simplified home; LEADER/ADMIN keep the full operations dashboard. */
+export default function Dashboard() { const { role } = useAuth(); return role === 'OPERATOR' ? <SupplyHome /> : <LeaderDashboard /> }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore'
-import { AlertTriangle, ChevronDown, Search } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronLeft, Search } from 'lucide-react'
 import { db } from '../lib/firebase'
 import { useCollection } from '../lib/useCollection'
 import { useAuth } from '../auth/AuthContext'
@@ -11,7 +11,10 @@ import { todayStr, type SnapLine } from '../lib/production'
 import { setShift, useShift } from '../lib/shift'
 import { when, type Ts } from '../lib/format'
 import { Empty, Highlight, Pill, Progress, Sheet, StatusPill, Toast, useDialog } from '../ui'
-import { useProductions } from './Production'
+import { useProgress } from '../lib/useProgress'
+import { partProgress, summarizeProgress } from '../lib/report'
+import { matchesCategory, NO_CATEGORY, useOpCat, useOpName } from '../lib/supplyProfile'
+import { useProductions, type P } from './Production'
 interface Tx { id: string; partId: string; qty: number; shift: number; type: string; operatorName: string; createdAt: Ts }
 interface Adj { id: string; txId: string }
 const ms = (t: Ts) => t?.toDate ? t.toDate().getTime() : Infinity
@@ -22,7 +25,7 @@ function useLive<T>(coll: string, productionId: string) {
 }
 type Take = { partId: string; mode: 'ALL' | 'PARTIAL'; value: string; over?: OverInfo }
 export default function Supply() {
-  const { user, role } = useAuth(); const leaderUp = role === 'ADMIN' || role === 'LEADER'; const uname = user?.displayName ?? user?.email ?? ''; const { prompt } = useDialog(); const [sp] = useSearchParams()
+  const { user, role } = useAuth(); const leaderUp = role === 'ADMIN' || role === 'LEADER'; const isSupply = role === 'OPERATOR'; const opName = useOpName().trim(); const opCat = useOpCat(); const uname = isSupply && opName ? opName : (user?.displayName ?? user?.email ?? ''); const { prompt } = useDialog(); const [sp] = useSearchParams()
   const cats = useCollection<{ name: string }>('supplyCategories'); const shift = useShift()
   const [date, setDate] = useState(sp.get('date') ?? todayStr()); const { items: prods } = useProductions(date)
   const [prodId, setProdId] = useState(sp.get('prod') ?? ''); const prod = prods.find(p => p.id === prodId)
@@ -42,12 +45,13 @@ export default function Supply() {
   const catName = (id: string) => cats.items.find(c => c.id === id)?.name ?? ''
   const present = useMemo(() => [...new Set(rows.map(r => r.supplyCategoryId))], [rows])
   const tokens = q.toLowerCase().split(/\s+/).filter(Boolean)
-  const shown = rows.filter(r => (catF === '__all' || r.supplyCategoryId === catF) && (!pending || r.status !== 'COMPLETED') && tokens.every(t => `${r.partCode} ${r.partName}`.toLowerCase().includes(t)))
+  const shown = rows.filter(r => (isSupply ? matchesCategory(opCat, r.supplyCategoryId) : (catF === '__all' || r.supplyCategoryId === catF)) && (!pending || r.status !== 'COMPLETED') && tokens.every(t => `${r.partCode} ${r.partName}`.toLowerCase().includes(t)))
   const count = (s: string) => rows.filter(r => r.status === s).length
   const [take, setTake] = useState<Take | null>(null); const cur = take ? rows.find(r => r.partId === take.partId) : undefined
   const [openPart, setOpenPart] = useState(''); const [busy, setBusy] = useState(false); const [toast, setToast] = useState<{ m: string; t: 'ok' | 'bad' }>({ m: '', t: 'ok' }); const keys = useRef<Record<string, string>>({})
   const go = async (r: Row, mode: 'TAKE_ALL' | 'PARTIAL', qty: number, confirmOver: boolean) => {
     if (!shift) return setToast({ m: 'Pilih shift aktif Anda dulu.', t: 'bad' })
+    if (isSupply && !opName) return setToast({ m: 'Isi nama Anda di Beranda dulu.', t: 'bad' })
     setBusy(true); const key = (keys.current[r.partId] ??= crypto.randomUUID()) // same key on retry = no duplicate
     try {
       const res = await recordTake(db, { idempotencyKey: key, productionId: prodId, partId: r.partId, mode, qty, shift, confirmOver, notes: '', supplyCategoryName: catName(r.supplyCategoryId), user: { uid: user!.uid, name: uname } })
@@ -61,12 +65,15 @@ export default function Supply() {
   const correct = async (txId: string) => { const reason = await prompt({ title: 'Koreksi transaksi', message: 'Transaksi dibatalkan, data asli tetap tersimpan. Tulis alasannya.', confirmLabel: 'Koreksi', danger: true }); if (!reason) return; try { await reverseTransaction(db, { txId, reason, user: { uid: user!.uid, name: uname } }); setToast({ m: 'Koreksi tercatat.', t: 'ok' }) } catch (e) { setToast({ m: (e as Error).message, t: 'bad' }) } }
   const active = prod?.status === 'ACTIVE'
   const closeSheet = () => { if (!busy) setTake(null) }
+  if (isSupply && (!opName || !opCat)) return <div className="surface"><Empty title="Lengkapi data tugas Anda" hint="Isi nama dan pilih kategori supply di Beranda agar hanya part kategori Anda yang tampil." /><div className="pb-6 text-center"><Link to="/" className="btn btn-primary">Ke Beranda</Link></div></div>
+  const myCatLabel = opCat === NO_CATEGORY ? 'Belum diatur' : catName(opCat)
   return <div>
-    <div className="surface p-3 mb-4 grid grid-cols-[auto_1fr] gap-2 items-end">
+    {isSupply ? <div className="mb-4"><label className="label" htmlFor="sd2">Tanggal</label><input id="sd2" type="date" className="input !w-auto" value={date} onChange={e => { setDate(e.target.value); setProdId('') }} /></div> : <div className="surface p-3 mb-4 grid grid-cols-[auto_1fr] gap-2 items-end">
       <div><label className="label" htmlFor="sd">Tanggal</label><input id="sd" type="date" className="input" value={date} onChange={e => { setDate(e.target.value); setProdId('') }} /></div>
-      <div><label className="label" htmlFor="sp">Produksi</label><select id="sp" className="input" value={prodId} onChange={e => { setProdId(e.target.value); setTake(null); setCatF('__all') }}><option value="">Pilih produksi…</option>{prods.filter(p => p.status !== 'CANCELLED').map(p => <option key={p.id} value={p.id}>{p.modelName} · {p.lineName}/{p.groupName} · {p.qty}{p.status === 'COMPLETED' ? ' (selesai)' : ''}</option>)}</select></div></div>
+      <div><label className="label" htmlFor="sp">Produksi</label><select id="sp" className="input" value={prodId} onChange={e => { setProdId(e.target.value); setTake(null); setCatF('__all') }}><option value="">Pilih produksi…</option>{prods.filter(p => p.status !== 'CANCELLED').map(p => <option key={p.id} value={p.id}>{p.modelName} · {p.lineName}/{p.groupName} · {p.qty}{p.status === 'COMPLETED' ? ' (selesai)' : ''}</option>)}</select></div></div>}
 
-    {!prod ? <div className="surface"><Empty title="Pilih produksi" hint="Pilih tanggal dan produksi untuk mulai mencatat pengambilan part." /></div> : <>
+    {!prod ? (isSupply ? <ModelPicker prods={prods} opCat={opCat} onPick={id => { setProdId(id); setTake(null) }} /> : <div className="surface"><Empty title="Pilih produksi" hint="Pilih tanggal dan produksi untuk mulai mencatat pengambilan part." /></div>) : <>
+      {isSupply && <button className="btn btn-ghost btn-sm -ml-2 mb-2" onClick={() => { setProdId(''); setTake(null) }}><ChevronLeft size={18} />Ganti model</button>}
       <div className="mb-4">
         <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><h2 className="text-2xl font-bold tracking-tight leading-tight">{prod.modelName}</h2>
           <p className="text-sm text-mute mt-1">{prod.lineName} · {prod.groupName} · <span className="num font-medium text-ink2">{prod.qty.toLocaleString('id-ID')} unit</span> · BOM v{prod.bomVersion}</p></div>{!active && <StatusPill status={prod.status} />}</div>
@@ -76,10 +83,11 @@ export default function Supply() {
         {!active && <p className="mt-3 text-sm text-amber-800 bg-amber-50 rounded-lg p-3">Produksi {prod.status}. Pengambilan part dikunci; minta Leader atau Admin membukanya kembali.</p>}</div>
 
       <div className="sticky z-10 bg-canvas/95 backdrop-blur -mx-4 md:-mx-8 px-4 md:px-8 pt-2 pb-3 border-b border-line mb-3" style={{ top: 'calc(3.5rem + env(safe-area-inset-top))' }}>
+        {isSupply && <p className="text-xs text-mute mb-2">Kategori <b className="text-ink">{myCatLabel}</b> · {opName} · <Link to="/" className="text-sharp font-medium">Ubah</Link></p>}
         <div className="relative mb-2"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-mute" /><input aria-label="Cari part" className="input !pl-10" placeholder="Cari kode atau nama part" value={q} onChange={e => setQ(e.target.value)} /></div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-          <button className={`chip ${catF === '__all' ? 'chip-on' : ''}`} onClick={() => setCatF('__all')}>Semua</button>
-          {present.map(id => <button key={id || 'none'} className={`chip ${catF === id ? 'chip-on' : ''}`} onClick={() => setCatF(id)}>{id ? catName(id).replace(/^Supply\s+/i, '') : 'Belum diatur'}</button>)}
+          {!isSupply && <><button className={`chip ${catF === '__all' ? 'chip-on' : ''}`} onClick={() => setCatF('__all')}>Semua</button>
+          {present.map(id => <button key={id || 'none'} className={`chip ${catF === id ? 'chip-on' : ''}`} onClick={() => setCatF(id)}>{id ? catName(id).replace(/^Supply\s+/i, '') : 'Belum diatur'}</button>)}</>}
           <button className={`chip ${pending ? 'chip-on' : ''}`} onClick={() => setPending(!pending)}>Belum selesai</button></div></div>
       <p className="text-xs text-mute mb-2 px-1 num">{shown.length} dari {rows.length} part · <span className="text-green-700">{count('COMPLETED')} selesai</span> · {count('PARTIAL')} sebagian · {count('NOT_TAKEN')} belum{count('OVER_SUPPLY') > 0 && <b className="text-bad"> · {count('OVER_SUPPLY')} over</b>}</p>
 
@@ -113,4 +121,21 @@ export default function Supply() {
           <button disabled={busy || !shift || !(Number(take.value) > 0)} className="btn btn-primary btn-lg w-full" onClick={() => go(cur, 'PARTIAL', Number(take.value), false)}>{busy ? 'Menyimpan…' : 'Catat pengambilan'}</button></>}
         {!shift && <p className="text-sm text-amber-800 mt-3">Pilih shift Anda dulu di bagian atas halaman.</p>}</div>}</Sheet>
     <Toast msg={toast.m} tone={toast.t} onClose={() => setToast({ m: '', t: 'ok' })} /></div>
+}
+
+/** Supply picks a production by tapping its card (same look as the Production page) instead of a dropdown. */
+function ModelPicker({ prods, opCat, onPick }: { prods: P[]; opCat: string; onPick: (id: string) => void }) {
+  const list = prods.filter(p => p.status !== 'CANCELLED').sort((a, b) => (a.status === 'ACTIVE' ? 0 : 1) - (b.status === 'ACTIVE' ? 0 : 1) || a.lineName.localeCompare(b.lineName) || a.modelName.localeCompare(b.modelName))
+  const { lines, taken } = useProgress(list.slice(0, 40).map(p => p.id))
+  if (list.length === 0) return <div className="surface"><Empty title="Belum ada jadwal produksi" hint="Belum ada produksi untuk tanggal ini. Jadwal diinput oleh Leader atau Admin." /></div>
+  return <><p className="text-sm text-mute mb-2 px-1">Pilih model yang akan disupply</p>
+    <ul className="surface divide-y divide-line overflow-hidden">{list.map(p => {
+      const s = summarizeProgress(partProgress(lines[p.id] ?? [], p.qty, taken[p.id] ?? {}, opCat === NO_CATEGORY ? '' : opCat)); const done = s.completed + s.over; const v = s.items ? done * 100 / s.items : 0
+      return <li key={p.id}><button className="relative w-full text-left pl-5 pr-4 py-4 flex gap-4 hover:bg-canvas/60 transition-colors" onClick={() => onPick(p.id)}>
+        <span className={`absolute left-0 top-0 bottom-0 w-1 ${p.status === 'ACTIVE' ? 'bg-sharp' : 'bg-ok'}`} />
+        <div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap"><h3 className="font-bold text-[17px] leading-tight">{p.modelName}</h3>{p.status === 'COMPLETED' && <StatusPill status="COMPLETED" />}{s.over > 0 && <Pill tone="bad">Over {s.over}</Pill>}</div>
+          <p className="text-xs text-mute mt-1">{p.lineName} · {p.groupName} · {p.productCategoryName}</p>
+          {s.items > 0 ? <div className="mt-3 flex items-center gap-3"><div className="flex-1"><Progress value={v} tone={v === 100 ? 'ok' : 'sharp'} /></div><span className="text-xs text-mute num whitespace-nowrap">{done}/{s.items} part Anda</span></div>
+            : lines[p.id] ? <p className="text-xs text-mute mt-2">Tidak ada part untuk kategori Anda</p> : null}</div>
+        <div className="text-right shrink-0"><p className="text-3xl font-bold tracking-tight num leading-none">{p.qty.toLocaleString('id-ID')}</p><p className="text-xs text-mute mt-1">unit</p></div></button></li> })}</ul></>
 }

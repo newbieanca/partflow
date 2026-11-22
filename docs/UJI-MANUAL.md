@@ -46,3 +46,21 @@ Belum diuji di browser nyata. Lakukan di Chrome dengan DevTools (Ctrl+Shift+M) d
 - [ ] Huruf Inter tampil (bukan huruf bawaan sistem); angka sejajar rapi di kolom Sisa.
 - [ ] Layar login terbaca di HP dan desktop; masuk dengan Enter berfungsi.
 - [ ] Kontras teks mudah dibaca di bawah sinar terang pabrik (uji di lantai produksi bila bisa).
+
+## Logo dan ikon
+- [ ] Layar login: logo PARTFLOW tampil tajam (desktop di panel kiri, HP di atas formulir); logo SHARP kecil muncul di bawah.
+- [ ] Sidebar desktop menampilkan tulisan PARTFLOW; app bar HP menampilkan lambang P di sebelah judul halaman.
+- [ ] Tab browser menampilkan ikon P merah (favicon).
+- [ ] Hapus aplikasi PARTFLOW lama dari layar utama HP, buka ulang di Chrome, lalu pasang lagi: ikon baru (P putih di kotak merah) muncul dan tidak terpotong.
+
+## Akun supply (supply@wm.prod, role OPERATOR)
+- [ ] Buat akun lewat Profil > Pengguna > Tambah akun: nama "Supply WM", email supply@wm.prod, role OPERATOR. Login dari 2 HP sekaligus: keduanya berhasil.
+- [ ] Beranda: tidak ada tombol Produksi; ada kotak Nama, Kategori supply, dan Shift. Nama dan pilihan tersimpan setelah halaman dimuat ulang, dan berbeda di tiap HP.
+- [ ] Beranda: Jadwal produksi menampilkan produksi yang diinput Leader/Admin; tombol panah ganti hari; mengetuk kartu membuka Supply untuk model itu.
+- [ ] Aktivitas terbaru: tombol Sembunyikan menyembunyikan daftar; pilihan tetap setelah dimuat ulang; hanya menampilkan kategori yang dipilih.
+- [ ] Produksi: tidak ada Produksi baru, Ubah, atau Batalkan. Tombol Supply dan Selesai masih ada.
+- [ ] Mencoba membuat produksi dari akun supply lewat cara lain (misalnya konsol browser): ditolak aturan Firestore setelah rules baru dipublikasikan.
+- [ ] Supply: tidak ada dropdown Produksi, diganti kartu model; "Ganti model" kembali ke daftar kartu.
+- [ ] Supply: hanya part kategori yang dipilih yang tampil, tanpa chip kategori lain. Mengubah kategori di Beranda langsung mengubah daftar part.
+- [ ] Nama yang diisi muncul sebagai operator di Riwayat dan di aktivitas terbaru, bukan "Supply WM".
+- [ ] Kosongkan nama lalu buka Supply: muncul ajakan melengkapi data di Beranda dan pencatatan ditolak.
