@@ -93,3 +93,8 @@ Siapkan satu produksi dengan satu part: kebutuhan 100, catat pengambilan 100.
 - [ ] Banner pengingat muncul untuk Admin bila cadangan terakhir lebih dari 7 hari (atau belum pernah); tidak muncul untuk Leader dan Operator.
 - [ ] Ikuti docs/CADANGAN.md: jalankan workflow Backup Firestore secara manual, unduh artifact, buka dengan OpenSSL, dan jalankan SIMULASI pemulihan (tanpa --yes).
 - [ ] Setelah workflow berhasil, "Cadangan otomatis terakhir" di aplikasi terisi.
+
+## Catatan transaksi, sebaran group, CI
+- [ ] Supply: panel Catat/Ambil semua punya kolom "Catatan (opsional)"; catatan tampil di riwayat part dan Riwayat, dan ada kolom Catatan di ekspor Excel.
+- [ ] Dashboard (Leader/Admin): ada "Produksi per line" dan "Produksi per group".
+- [ ] Tab Actions di GitHub: workflow "CI" hijau setelah unggahan (jalan otomatis, tidak menghalangi deploy Vercel).

@@ -18,7 +18,7 @@ import { useProgress } from '../lib/useProgress'
 import { partProgress, summarizeProgress } from '../lib/report'
 import { matchesCategory, useOpCat, useOpName } from '../lib/supplyProfile'
 import { useProductions, type P } from './Production'
-interface Tx { id: string; partId: string; qty: number; shift: number; type: string; operatorName: string; createdAt: Ts }
+interface Tx { id: string; notes?: string; partId: string; qty: number; shift: number; type: string; operatorName: string; createdAt: Ts }
 interface Adj { id: string; txId: string; type: string; qty: number; note?: string; userName?: string }
 const ms = (t: Ts) => t?.toDate ? t.toDate().getTime() : Infinity
 type Take = { partId: string; mode: 'ALL' | 'PARTIAL'; value: string; over?: OverInfo }
@@ -46,14 +46,14 @@ export default function Supply() {
   const shown = rows.filter(r => (isSupply ? matchesCategory(opCat, r.supplyCategoryId) : (catF === '__all' || r.supplyCategoryId === catF)) && (!pending || r.status !== 'COMPLETED') && tokens.every(t => `${r.partCode} ${r.partName}`.toLowerCase().includes(t)))
   const count = (s: string) => rows.filter(r => r.status === s).length
   const [take, setTake] = useState<Take | null>(null); const cur = take ? rows.find(r => r.partId === take.partId) : undefined
-  const [openPart, setOpenPart] = useState(''); const [lpPart, setLpPart] = useState(''); const [busy, setBusy] = useState(false); const [toast, setToast] = useState<{ m: string; t: 'ok' | 'bad' }>({ m: '', t: 'ok' }); const keys = useRef<Record<string, string>>({})
+  const [openPart, setOpenPart] = useState(''); const [takeNote, setTakeNote] = useState(''); const [lpPart, setLpPart] = useState(''); const [busy, setBusy] = useState(false); const [toast, setToast] = useState<{ m: string; t: 'ok' | 'bad' }>({ m: '', t: 'ok' }); const keys = useRef<Record<string, string>>({})
   const go = async (r: Row, mode: 'TAKE_ALL' | 'PARTIAL', qty: number, confirmOver: boolean) => {
     if (!shift) return setToast({ m: 'Pilih shift aktif Anda dulu.', t: 'bad' })
     if (isSupply && !opName) return setToast({ m: 'Isi nama Anda di Beranda dulu.', t: 'bad' })
     setBusy(true); const key = (keys.current[r.partId] ??= crypto.randomUUID()) // same key on retry = no duplicate
     try {
-      const res = await recordTake(db, { idempotencyKey: key, productionId: prodId, partId: r.partId, mode, qty, shift, confirmOver, notes: '', supplyCategoryName: catName(r.supplyCategoryId), user: { uid: user!.uid, name: uname } })
-      delete keys.current[r.partId]; setTake(null)
+      const res = await recordTake(db, { idempotencyKey: key, productionId: prodId, partId: r.partId, mode, qty, shift, confirmOver, notes: takeNote.trim().slice(0, 200), supplyCategoryName: catName(r.supplyCategoryId), user: { uid: user!.uid, name: uname } })
+      delete keys.current[r.partId]; setTake(null); setTakeNote('')
       setToast({ m: res.duplicate ? 'Transaksi ini sudah tercatat sebelumnya (tidak dobel).' : `Tercatat: ${r.partCode} · ${res.qty} ${r.unit} · Shift ${shift}`, t: 'ok' })
     } catch (e) {
       if (e instanceof OverSupplyError) setTake({ partId: r.partId, mode: 'PARTIAL', value: String(qty), over: e.info })
@@ -62,7 +62,7 @@ export default function Supply() {
   }
   const correct = async (txId: string) => { const reason = await prompt({ title: 'Koreksi transaksi', message: 'Transaksi dibatalkan, data asli tetap tersimpan. Tulis alasannya.', confirmLabel: 'Koreksi', danger: true }); if (!reason) return; try { await reverseTransaction(db, { txId, reason, user: { uid: user!.uid, name: uname } }); setToast({ m: 'Koreksi tercatat.', t: 'ok' }) } catch (e) { setToast({ m: (e as Error).message, t: 'bad' }) } }
   const active = prod?.status === 'ACTIVE'
-  const closeSheet = () => { if (!busy) setTake(null) }
+  const closeSheet = () => { if (!busy) { setTake(null); setTakeNote('') } }
   if (isSupply && (!opName || !opCat || (!cats.loading && !cats.items.some(c => c.id === opCat)))) return <div className="surface"><Empty title="Lengkapi data tugas Anda" hint="Isi nama dan pilih kategori supply di Beranda agar hanya part kategori Anda yang tampil." /><div className="pb-6 text-center"><Link to="/" className="btn btn-primary">Ke Beranda</Link></div></div>
   const myCatLabel = catName(opCat)
   return <div>
@@ -100,7 +100,7 @@ export default function Supply() {
               <button disabled={busy} className="btn btn-secondary" onClick={() => { delete keys.current[r.partId]; setTake({ partId: r.partId, mode: 'PARTIAL', value: '' }) }}>Sebagian</button></div>}
             <button className="mt-2 inline-flex items-center gap-1 text-xs text-mute font-medium" aria-expanded={open} onClick={() => setOpenPart(open ? '' : r.partId)}>Riwayat ({r.list.length})<ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} /></button>
             {r.list.length > 0 && <button className="mt-2 ml-4 text-xs text-sharp font-medium" onClick={() => setLpPart(r.partId)}>Edit loss pack</button>}
-            {open && <ul className="mt-1 text-sm divide-y divide-line animate-fade">{r.list.length === 0 && <li className="py-2 text-mute">Belum ada pengambilan.</li>}{r.list.map(t => <li key={t.id} className="py-2 flex gap-2 items-center"><div className="flex-1 min-w-0"><div className={reversed.has(t.id) ? 'line-through text-mute' : ''}><span className="font-semibold num">{effectiveQty(t.qty, lpMap.get(t.id)?.qty ?? 0)}</span>{lpMap.has(t.id) && <span className="text-xs text-mute num"> (semula {t.qty})</span>} · Shift {t.shift} · {t.operatorName}</div><div className="text-xs text-mute">{when(t.createdAt)}</div>{lpMap.get(t.id) && <div className="text-xs text-amber-800">Loss pack: {lpMap.get(t.id)!.note}{lpMap.get(t.id)!.userName && ` (${lpMap.get(t.id)!.userName})`}</div>}</div>
+            {open && <ul className="mt-1 text-sm divide-y divide-line animate-fade">{r.list.length === 0 && <li className="py-2 text-mute">Belum ada pengambilan.</li>}{r.list.map(t => <li key={t.id} className="py-2 flex gap-2 items-center"><div className="flex-1 min-w-0"><div className={reversed.has(t.id) ? 'line-through text-mute' : ''}><span className="font-semibold num">{effectiveQty(t.qty, lpMap.get(t.id)?.qty ?? 0)}</span>{lpMap.has(t.id) && <span className="text-xs text-mute num"> (semula {t.qty})</span>} · Shift {t.shift} · {t.operatorName}</div><div className="text-xs text-mute">{when(t.createdAt)}</div>{t.notes && <div className="text-xs text-mute">Catatan: {t.notes}</div>}{lpMap.get(t.id) && <div className="text-xs text-amber-800">Loss pack: {lpMap.get(t.id)!.note}{lpMap.get(t.id)!.userName && ` (${lpMap.get(t.id)!.userName})`}</div>}</div>
               {t.type === 'OVER_SUPPLY' && <Pill tone="bad">Over</Pill>}{lpMap.has(t.id) && <Pill tone="warn">Loss pack</Pill>}{reversed.has(t.id) ? <Pill>Dikoreksi</Pill> : leaderUp && <button className="btn btn-ghost btn-sm" onClick={() => correct(t.id)}>Koreksi</button>}</li>)}</ul>}</li> })}</ul>}
       {shown.length > 150 && <p className="text-xs text-mute mt-2 px-1">Menampilkan 150 pertama. Persempit dengan pencarian atau kategori.</p>}</>}
 
@@ -109,6 +109,7 @@ export default function Supply() {
         <p className="text-sm text-ink2 -mt-1 mb-4">{cur.partName}</p>
         <div className="grid grid-cols-3 text-center divide-x divide-line rounded-xl bg-canvas py-3 mb-4">{[['Butuh', cur.required, ''], ['Diambil', cur.taken, ''], ['Sisa', cur.remaining, cur.remaining < 0 ? 'text-bad' : '']].map(([l, v, c]) => <div key={l as string}><p className="text-[11px] text-mute">{l}</p><p className={`text-2xl font-bold num ${c}`}>{v}</p></div>)}</div>
         <p className="text-sm text-mute mb-4">Dicatat untuk <b className="text-ink">Shift {shift || '?'}</b> atas nama <b className="text-ink">{uname}</b></p>
+        {!take.over && <div className="mb-4"><label className="label" htmlFor="tn">Catatan (opsional)</label><input id="tn" className="input" maxLength={200} placeholder="Contoh: box rusak sebagian" value={takeNote} onChange={e => setTakeNote(e.target.value)} /></div>}
         {take.over ? <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3" role="alert">
           <p className="flex items-center gap-2 font-bold text-bad"><AlertTriangle size={18} />Melebihi kebutuhan (over supply)</p>
           <p className="text-sm text-ink2">Kebutuhan <b className="num">{take.over.required}</b> · sudah diambil <b className="num">{take.over.taken}</b> · sisa <b className="num">{Math.max(0, take.over.remaining)}</b>. Jumlah <b className="num">{take.value}</b> akan menambah kelebihan <b className="text-bad num">{take.over.excess}</b>.</p>
