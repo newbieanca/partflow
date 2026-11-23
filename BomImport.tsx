@@ -6,6 +6,8 @@ import { useCollection } from '../lib/useCollection'
 import { partId } from '../lib/slug'
 import { audit } from '../lib/audit'
 import { useAuth } from '../auth/AuthContext'
+import { FileSpreadsheet, UploadCloud } from 'lucide-react'
+import { Empty, ErrorNote, Pill } from '../ui'
 import { detectCols, parseBomFile, requiredCols, type Cols, type RawRow } from '../lib/bomFile'
 interface Named { name: string; active?: boolean }
 interface Header { modelId: string; version: number; active: boolean; signature?: string }
@@ -58,32 +60,30 @@ export default function BomImport() {
   }
   const activate = async (modelId: string, hs: Header[], v: number) => { const b = writeBatch(db); hs.forEach(h => b.update(doc(db, 'bomHeaders', `${modelId}_v${h.version}`), { active: h.version === v })); await b.commit(); await audit(user!, 'BOM_ACTIVATE', 'bomHeaders', `${modelId}_v${v}`, null, { active: true }) }
   const byModel = useMemo(() => { const m = new Map<string, Header[]>(); boms.items.forEach(h => m.set(h.modelId, [...(m.get(h.modelId) ?? []), h])); return [...m] }, [boms.items])
-  return <div className="space-y-4"><h2 className="text-lg font-bold">Upload BOM (Excel)</h2>
-    <p className="text-sm text-slate-600">Satu file untuk semua model. Kolom dibaca dari judul: Supplier, Material, Desc, Internal Model, External Model, QTY, Supply Kategori. QTY 0 dilewati (part tidak dipakai).</p>
-    <div className="border-2 border-dashed border-blue-500 bg-blue-50 rounded-xl p-5 text-center space-y-2">
-      <p className="text-sm font-semibold text-[#0b1f3a]">Langkah 1: pilih file Excel BOM</p>
-      <label className="inline-block cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-6 py-3 shadow">📁 Pilih File Excel<input type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { onFile(e.target.files?.[0]); e.target.value = '' }} /></label>
-      <p className="text-sm text-slate-600">{fileName || 'Belum ada file dipilih (.xlsx / .xls)'}</p></div>
-    {wb && wb.SheetNames.length > 1 && <select className="border rounded-lg p-2" value={sheet} onChange={e => loadSheet(wb, e.target.value)}>{wb.SheetNames.map(s => <option key={s}>{s}</option>)}</select>}
+  return <div>
+    <p className="text-sm text-mute mb-4">Satu file untuk semua model. Kolom dibaca dari judulnya: Supplier, Material, Desc, Internal Model, External Model, QTY, Supply Kategori. QTY 0 dilewati.</p>
+    <div className="surface border-dashed !border-2 !border-ink2/30 p-6 text-center mb-4"><UploadCloud className="mx-auto text-sharp" size={32} /><p className="font-semibold mt-2">Langkah 1: pilih file Excel BOM</p>
+      <label className="btn btn-primary btn-lg mt-3 cursor-pointer">Pilih file Excel<input type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { onFile(e.target.files?.[0]); e.target.value = '' }} /></label>
+      <p className="text-sm text-mute mt-2 flex items-center justify-center gap-1">{fileName ? <><FileSpreadsheet size={16} />{fileName}</> : 'Belum ada file dipilih (.xlsx / .xls)'}</p>
+      {wb && wb.SheetNames.length > 1 && <select aria-label="Sheet" className="input !w-auto mt-3" value={sheet} onChange={e => loadSheet(wb, e.target.value)}>{wb.SheetNames.map(s => <option key={s}>{s}</option>)}</select>}</div>
     {rows.length > 0 && <>
-      {(!ok || showMap) ? <div className="grid gap-2 sm:grid-cols-2 bg-white rounded-xl shadow p-3">{LABELS.map(([k, label, req]) => <label key={k} className="text-sm">{label}{req && ' *'}<select className="w-full border rounded-lg p-2" value={cols[k]} onChange={e => setCols({ ...cols, [k]: e.target.value })}><option value="">—</option>{headers.map(h => <option key={h}>{h}</option>)}</select></label>)}</div>
-        : <button className="underline text-sm" onClick={() => setShowMap(true)}>Kolom sudah terdeteksi otomatis. Ubah?</button>}
-      {!ok && <p className="text-red-600">Pilih kolom yang bertanda *.</p>}
+      {(!ok || showMap) ? <div className="surface p-3 mb-4 grid gap-2 sm:grid-cols-2">{LABELS.map(([k, label, req]) => <div key={k}><label className="label">{label}{req && ' *'}</label><select className="input" value={cols[k]} onChange={e => setCols({ ...cols, [k]: e.target.value })}><option value="">—</option>{headers.map(h => <option key={h}>{h}</option>)}</select></div>)}</div>
+        : <button className="text-sm text-sharp font-medium mb-4" onClick={() => setShowMap(true)}>Kolom terdeteksi otomatis. Ubah?</button>}
+      {!ok && <ErrorNote>Pilih kolom yang bertanda *.</ErrorNote>}
       {result && <>
-        <div className="bg-white rounded-xl shadow p-3 text-sm space-y-1">
-          <p><b>{result.totalRows}</b> baris · <b>{result.groups.length}</b> model · <b>{result.zeroRows}</b> baris QTY 0 dilewati · <b className={result.errors.length ? 'text-red-600' : ''}>{result.errors.length}</b> baris bermasalah</p>
-          <p>{newParts.size} part baru akan dibuat di master part · {plan.filter(p => p.isNewModel).length} model baru · unit part diisi PCS</p>
-          {noCat > 0 && <p className="text-orange-600">{noCat} baris BOM belum punya Supply Kategori (kolom G kosong). Tetap bisa diimpor; isi kolom G lalu upload ulang untuk membuat versi baru.</p>}</div>
-        {result.warnings.length > 0 && <details className="bg-yellow-50 rounded-xl p-3 text-sm text-yellow-800"><summary className="cursor-pointer font-medium">{result.warnings.length} baris duplikat identik digabung (dihitung sekali). Klik untuk lihat.</summary><ul className="max-h-48 overflow-auto mt-2">{result.warnings.slice(0, 100).map((w, i) => <li key={i}>Baris {w.row}: {w.msg}</li>)}</ul></details>}
-        {result.errors.length > 0 && <ul className="bg-red-50 rounded-xl p-3 text-sm text-red-700 max-h-60 overflow-auto">{result.errors.slice(0, 100).map((e, i) => <li key={i}>Baris {e.row}: {e.msg}</li>)}{result.errors.length > 100 && <li>…dan {result.errors.length - 100} lainnya</li>}</ul>}
-        <div className="overflow-x-auto bg-white rounded-xl shadow"><table className="text-sm w-full"><thead><tr className="text-left"><th className="p-2">Model</th><th>Part dipakai</th><th>QTY 0</th><th>Hasil</th></tr></thead>
-          <tbody>{plan.slice(0, 300).map(p => <tr key={p.g.modelId}><td className="p-2">{p.g.model}{p.isNewModel && <em className="text-blue-600"> · baru</em>}</td><td>{p.g.lines.length}</td><td>{p.g.skippedZero}</td><td>{p.unchanged ? 'Tidak berubah (dilewati)' : `Versi ${p.version}`}</td></tr>)}</tbody></table></div>
-        <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={autoActive} onChange={e => setAutoActive(e.target.checked)} /> Langsung aktifkan versi baru (produksi yang sudah berjalan tidak terpengaruh)</label>
-        <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} /> Saya konfirmasi data di atas benar. BOM lama tidak ditimpa, versi baru dibuat.</label>
-        <button disabled={result.errors.length > 0 || !confirm || !!busy || toWrite.length === 0} className="w-full bg-blue-600 disabled:opacity-40 text-white rounded-lg p-3 font-semibold" onClick={run}>{busy || (toWrite.length === 0 ? 'Tidak ada perubahan' : `Impor ${toWrite.length} BOM`)}</button>
-        {result.errors.length > 0 && <p className="text-sm text-red-600">Perbaiki baris bermasalah di Excel lalu upload ulang.</p>}</>}</>}
-    {msg && <p className="font-medium">{msg}</p>}
-    {byModel.length > 0 && <div><h3 className="font-bold mt-4">BOM per model</h3><ul className="bg-white rounded-xl shadow divide-y">{byModel.sort((a, b) => a[0].localeCompare(b[0])).slice(0, 300).map(([id, hs]) => { const act = hs.find(h => h.active); const last = hs.reduce((m, h) => h.version > m.version ? h : m)
-      return <li key={id} className="p-3 flex gap-3 items-center"><span className="flex-1">{models.items.find(m => m.id === id)?.name ?? id}</span><span className="text-sm">{act ? `Aktif: v${act.version}` : 'Belum ada versi aktif'}</span>{(!act || act.version !== last.version) && <button className="underline text-sm" onClick={() => activate(id, hs, last.version)}>Aktifkan v{last.version}</button>}</li> })}</ul></div>}
+        <div className="surface mb-4 grid grid-cols-2 sm:grid-cols-4 text-center">{[['Baris', result.totalRows, ''], ['Model', result.groups.length, ''], ['QTY 0 dilewati', result.zeroRows, ''], ['Bermasalah', result.errors.length, result.errors.length ? 'text-bad' : 'text-ok']].map(([l, v, c], i) => <div key={l as string} className={`py-3 ${i % 2 ? 'border-l border-line' : ''} ${i > 1 ? 'border-t sm:border-t-0 border-line' : ''} ${i > 0 ? 'sm:border-l' : ''}`}><p className={`text-2xl font-bold num ${c}`}>{v}</p><p className="text-xs text-mute">{l}</p></div>)}</div>
+        <p className="text-sm text-ink2 mb-3">{newParts.size} part baru di master part · {plan.filter(p => p.isNewModel).length} model baru · unit part diisi PCS</p>
+        {noCat > 0 && <p className="text-sm text-ink2 bg-canvas rounded-lg p-3 mb-3">{noCat} baris tanpa Supply Kategori. Part tanpa kategori tidak dicatat di aplikasi; atur kategorinya lewat menu Kategori Part.</p>}
+        {result.warnings.length > 0 && <details className="bg-amber-50 rounded-lg p-3 mb-3 text-sm text-amber-900"><summary className="cursor-pointer font-medium">{result.warnings.length} baris duplikat identik digabung (dihitung sekali). Klik untuk lihat.</summary><ul className="max-h-48 overflow-auto mt-2">{result.warnings.slice(0, 100).map((w, i) => <li key={i}>Baris {w.row}: {w.msg}</li>)}</ul></details>}
+        {result.errors.length > 0 && <div className="mb-3"><ErrorNote>{result.errors.length} baris bermasalah. Perbaiki di Excel lalu upload ulang.</ErrorNote><ul className="surface mt-2 p-3 text-sm text-bad max-h-60 overflow-auto">{result.errors.slice(0, 100).map((e, i) => <li key={i}>Baris {e.row}: {e.msg}</li>)}{result.errors.length > 100 && <li>…dan {result.errors.length - 100} lainnya</li>}</ul></div>}
+        <div className="surface overflow-x-auto mb-4"><table className="tbl"><thead><tr><th>Model</th><th className="text-right">Part dipakai</th><th className="text-right">QTY 0</th><th>Hasil</th></tr></thead>
+          <tbody>{plan.slice(0, 300).map(p => <tr key={p.g.modelId}><td className="font-medium">{p.g.model}{p.isNewModel && <span className="ml-2"><Pill tone="info">baru</Pill></span>}</td><td className="text-right num">{p.g.lines.length}</td><td className="text-right num">{p.g.skippedZero}</td><td>{p.unchanged ? <span className="text-mute">Tidak berubah (dilewati)</span> : <Pill tone="ok">Versi {p.version}</Pill>}</td></tr>)}</tbody></table></div>
+        <div className="space-y-2 mb-4"><label className="flex gap-3 items-start text-sm"><input type="checkbox" className="mt-0.5 w-5 h-5 accent-[#E60012]" checked={autoActive} onChange={e => setAutoActive(e.target.checked)} />Langsung aktifkan versi baru (produksi yang sudah berjalan tidak terpengaruh)</label>
+          <label className="flex gap-3 items-start text-sm"><input type="checkbox" className="mt-0.5 w-5 h-5 accent-[#E60012]" checked={confirm} onChange={e => setConfirm(e.target.checked)} />Saya konfirmasi data di atas benar. BOM lama tidak ditimpa, versi baru dibuat.</label></div>
+        <button disabled={result.errors.length > 0 || !confirm || !!busy || toWrite.length === 0} className="btn btn-primary btn-lg w-full" onClick={run}>{busy || (toWrite.length === 0 ? 'Tidak ada perubahan' : `Impor ${toWrite.length} BOM`)}</button></>}</>}
+    {rows.length === 0 && !msg && byModel.length === 0 && <div className="surface"><Empty title="Belum ada BOM" hint="Unggah file Excel untuk membuat BOM semua model sekaligus." /></div>}
+    {msg && <p className="font-medium bg-white border border-line rounded-lg p-3 mt-4">{msg}</p>}
+    {byModel.length > 0 && <section className="mt-8"><h2 className="text-sm font-semibold text-ink2 mb-2 px-1">BOM per model</h2><ul className="surface divide-y divide-line overflow-hidden">{byModel.sort((a, b) => a[0].localeCompare(b[0])).slice(0, 300).map(([id, hs]) => { const act = hs.find(h => h.active); const last = hs.reduce((m, h) => h.version > m.version ? h : m)
+      return <li key={id} className="flex gap-3 items-center px-4 py-3"><span className="flex-1 font-medium">{models.items.find(m => m.id === id)?.name ?? id}</span>{act ? <Pill tone="ok">Aktif v{act.version}</Pill> : <Pill>Belum aktif</Pill>}{(!act || act.version !== last.version) && <button className="btn btn-secondary btn-sm" onClick={() => activate(id, hs, last.version)}>Aktifkan v{last.version}</button>}</li> })}</ul></section>}
   </div>
 }

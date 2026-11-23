@@ -20,7 +20,7 @@ import PartCategories from './pages/PartCategories'
 import Backup from './pages/Backup'
 import BackupBanner from './components/BackupBanner'
 const PAGES: Record<Section, ReactElement> = { dashboard: <Dashboard />, produksi: <Production />, supply: <Supply />, riwayat: <History />, part: <Parts />, laporan: <Reports />, master: <MasterData />, bom: <BomImport />, pengguna: <Users />, audit: <Audit />, kategori: <PartCategories />, cadangan: <Backup />, profil: <Profile /> }
-const Wordmark = ({ className = 'h-5' }: { className?: string }) => <BrandImg src="/brand/partflow-wordmark.webp" alt="PARTFLOW" className={`${className} w-auto`} />
+const Wordmark = ({ className = 'h-5' }: { className?: string }) => <BrandImg kind="wordmark" alt="PARTFLOW" className={`${className} w-auto`} />
 function Login() {
   const { login, blocked } = useAuth(); const [e, setE] = useState(''); const [p, setP] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
   const go = async () => { setErr(''); setBusy(true); try { await login(e.trim(), p) } catch { setErr('Email atau password salah.') } finally { setBusy(false) } }
@@ -28,15 +28,15 @@ function Login() {
     <div className="hidden md:flex flex-col justify-between bg-white border-r border-line p-12 relative overflow-hidden">
       <div className="absolute -right-28 -bottom-28 w-[26rem] h-[26rem] rounded-full border-[44px] border-sharp/[0.04]" />
       <p className="relative text-xs text-mute">Production Department · WM Division</p>
-      <BrandImg src="/brand/partflow-logo.webp" alt="PARTFLOW – Sharp, Precise, Efficient" className="relative w-full max-w-md mx-auto" />
-      <div className="relative flex items-center gap-3"><BrandImg src="/brand/sharp-logo.webp" alt="SHARP" className="h-4 w-auto" /><span className="text-xs text-mute">PT Sharp Electronics Indonesia</span></div></div>
+      <BrandImg kind="logo" alt="PARTFLOW – Sharp, Precise, Efficient" className="relative w-full max-w-md mx-auto" />
+      <div className="relative flex items-center gap-3"><BrandImg kind="sharp" alt="SHARP" className="h-4 w-auto" /><span className="text-xs text-mute">PT Sharp Electronics Indonesia</span></div></div>
     <div className="min-h-screen md:min-h-0 grid place-items-center p-6"><div className="w-full max-w-sm">
-      <BrandImg src="/brand/partflow-logo.webp" alt="PARTFLOW" className="md:hidden w-56 mx-auto mb-8" /><h1 className="text-2xl font-bold tracking-tight">Masuk</h1><p className="text-sm text-mute mt-1 mb-6">Gunakan akun dari Admin.</p>
+      <BrandImg kind="logo" alt="PARTFLOW" className="md:hidden w-56 mx-auto mb-8" /><h1 className="text-2xl font-bold tracking-tight">Masuk</h1><p className="text-sm text-mute mt-1 mb-6">Gunakan akun dari Admin.</p>
       <div className="space-y-3"><div><label className="label" htmlFor="em">Email</label><input id="em" className="input" type="email" autoComplete="username" value={e} onChange={x => setE(x.target.value)} /></div>
         <div><label className="label" htmlFor="pw">Password</label><input id="pw" className="input" type="password" autoComplete="current-password" value={p} onChange={x => setP(x.target.value)} onKeyDown={x => x.key === 'Enter' && go()} /></div>
         {(err || blocked) && <p role="alert" className="text-sm text-bad">{err || blocked}</p>}
         <button disabled={busy} className="btn btn-primary btn-lg w-full" onClick={go}>{busy ? 'Masuk…' : 'Masuk'}</button></div>
-      <div className="md:hidden mt-10 flex items-center justify-center gap-2"><BrandImg src="/brand/sharp-logo.webp" alt="SHARP" className="h-3.5 w-auto" /><span className="text-xs text-mute">PT Sharp Electronics Indonesia</span></div></div></div></div>
+      <div className="md:hidden mt-10 flex items-center justify-center gap-2"><BrandImg kind="sharp" alt="SHARP" className="h-3.5 w-auto" /><span className="text-xs text-mute">PT Sharp Electronics Indonesia</span></div></div></div></div>
 }
 export default function App() {
   const { user, role, loading } = useAuth(); const loc = useLocation(); const shift = useShift()
@@ -54,7 +54,7 @@ export default function App() {
       <Link to="/profil" className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-black/5"><span className="w-9 h-9 rounded-full bg-ink text-white grid place-items-center text-sm font-bold">{initial}</span><span className="min-w-0"><span className="block text-sm font-semibold truncate">{user.displayName ?? user.email}</span><span className="block text-xs text-mute">{role}</span></span></Link></aside>
     <div className="flex-1 min-w-0">
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-line px-4 md:px-8 flex items-center gap-3 min-h-14" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <BrandImg src="/brand/partflow-mark.webp" alt="PARTFLOW" className="md:hidden h-6 w-auto" /><h1 className="md:hidden flex-1 font-bold text-lg truncate">{cur?.label ?? 'PARTFLOW'}</h1>
+        <BrandImg kind="mark" alt="PARTFLOW" className="md:hidden h-6 w-auto" /><h1 className="md:hidden flex-1 font-bold text-lg truncate">{cur?.label ?? 'PARTFLOW'}</h1>
         <p className="hidden md:block flex-1 text-sm text-mute"><span className="text-ink2 font-medium">PARTFLOW</span> / {cur?.label ?? ''}</p>
         <span className="hidden md:inline text-sm text-mute">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</span>{shiftChip}<span className="md:hidden">{avatar}</span></header>
       <main key={loc.pathname} className="animate-page px-4 md:px-8 py-5 md:py-8 max-w-5xl mx-auto pb-28 md:pb-10">{role === 'ADMIN' && <BackupBanner />}<Routes>

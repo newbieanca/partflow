@@ -27,8 +27,7 @@ describe('design system components', () => {
 })
 import { BrandImg } from './ui'
 describe('BrandImg', () => {
-  it('renders the image with its alt text (fallback only appears if loading fails in the browser)', () => {
-    const h = html(<BrandImg src="/brand/partflow-wordmark.webp" alt="PARTFLOW" className="h-6 w-auto" />)
-    expect(h).toContain('src="/brand/partflow-wordmark.webp"'); expect(h).toContain('alt="PARTFLOW"')
+  it('renders an embedded logo (data URI, no file to fetch) with its alt text', () => {
+    for (const kind of ['logo', 'wordmark', 'mark', 'sharp'] as const) { const h = html(<BrandImg kind={kind} alt="X" className="h-6" />); expect(h).toContain('src="data:image/webp;base64,'); expect(h).toContain('alt="X"') }
   })
 })
