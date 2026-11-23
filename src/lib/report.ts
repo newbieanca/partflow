@@ -1,9 +1,9 @@
 import { requiredQty, remainingQty, sumQty, supplyStatus } from './bom'
 import type { SnapLine } from './production'
 export interface PartRow { partId: string; partCode: string; partName: string; unit: string; supplyCategoryId: string; required: number; taken: number; remaining: number; status: string }
-/** catFilter: '__all' = every part; '' = parts without supply category; otherwise a supply category id. */
+/** Only parts WITH a supply category are tracked. catFilter: '__all' = every tracked part, otherwise a supply category id. */
 export function partProgress(lines: SnapLine[], qty: number, taken: Record<string, number>, catFilter = '__all'): PartRow[] {
-  return lines.filter(l => catFilter === '__all' || l.supplyCategoryId === catFilter).map(l => {
+  return lines.filter(l => !!l.supplyCategoryId && (catFilter === '__all' || l.supplyCategoryId === catFilter)).map(l => {
     const required = requiredQty(l.qtyPerUnit, qty); const t = taken[l.partId] ?? 0
     return { partId: l.partId, partCode: l.partCode, partName: l.partName, unit: l.unit, supplyCategoryId: l.supplyCategoryId, required, taken: t, remaining: remainingQty(required, t), status: supplyStatus(required, t) }
   })

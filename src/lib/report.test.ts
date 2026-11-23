@@ -6,13 +6,13 @@ describe('progress', () => {
   const lines = [L('A', 1, 'base'), L('B', 2, 'base'), L('C', 1, 'top'), L('D', 1)]
   it('computes status per part and filters by supply category', () => {
     const r = partProgress(lines, 100, { A: 100, B: 150, C: 10 }, '__all')
-    expect(r.map(x => x.status)).toEqual(['COMPLETED', 'PARTIAL', 'PARTIAL', 'NOT_TAKEN'])
+    expect(r.map(x => x.status)).toEqual(['COMPLETED', 'PARTIAL', 'PARTIAL'])
     expect(partProgress(lines, 100, {}, 'base').length).toBe(2)
-    expect(partProgress(lines, 100, {}, '').map(x => x.partId)).toEqual(['D'])
+    expect(partProgress(lines, 100, {}, '__all').map(x => x.partId)).not.toContain('D') // no category = not tracked
   })
   it('summarizes counts and shortage, over-supply not netted against shortage', () => {
     const s = summarizeProgress(partProgress(lines, 100, { A: 120, B: 50 }))
-    expect(s).toMatchObject({ items: 4, completed: 0, partial: 1, notTaken: 2, over: 1, requiredQty: 500, takenQty: 170, shortageQty: 350 })
+    expect(s).toMatchObject({ items: 3, completed: 0, partial: 1, notTaken: 1, over: 1, requiredQty: 400, takenQty: 170, shortageQty: 250 })
   })
 })
 describe('aggregate', () => {

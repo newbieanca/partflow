@@ -7,7 +7,7 @@ import { when, type Ts } from '../lib/format'
 import { exportXlsx } from '../lib/exportXlsx'
 import { effectiveQty } from '../lib/takeLogic'
 import { Empty, ErrorNote, Highlight, Pill, StatusPill } from '../ui'
-interface Tx { id: string; createdAt: Ts; modelName: string; productCategoryName: string; lineName: string; groupName: string; supplyCategoryName: string; partCode: string; partName: string; qty: number; unit: string; operatorName: string; shift: number; type: string }
+interface Tx { id: string; notes?: string; createdAt: Ts; modelName: string; productCategoryName: string; lineName: string; groupName: string; supplyCategoryName: string; partCode: string; partName: string; qty: number; unit: string; operatorName: string; shift: number; type: string }
 export default function History() {
   const [from, setFrom] = useState(todayStr()); const [to, setTo] = useState(todayStr()); const [n, setN] = useState(300)
   const [shift, setShift] = useState(''); const [type, setType] = useState(''); const [q, setQ] = useState(''); const [showF, setShowF] = useState(false); const [open, setOpen] = useState('')
@@ -24,7 +24,7 @@ export default function History() {
   const tokens = q.toLowerCase().split(/\s+/).filter(Boolean)
   const shown = useMemo(() => txs.filter(t => (!shift || t.shift === Number(shift)) && (!type || t.type === type) && tokens.every(k => `${t.partCode} ${t.partName} ${t.modelName} ${t.operatorName} ${t.lineName} ${t.groupName} ${t.supplyCategoryName}`.toLowerCase().includes(k))), [txs, shift, type, q])
   const nF = [shift, type].filter(Boolean).length
-  const doExport = () => exportXlsx(`riwayat-${from}_${to}`, shown.map(t => ({ Waktu: t.createdAt?.toDate ? t.createdAt.toDate().toLocaleString('id-ID') : '', Model: t.modelName, Kategori: t.productCategoryName, Line: t.lineName, Group: t.groupName, 'Supply Category': t.supplyCategoryName, 'Kode Part': t.partCode, 'Nama Part': t.partName, Qty: eff(t), 'Qty awal': t.qty, 'Catatan loss pack': lp.get(t.id)?.note ?? '', Unit: t.unit, Operator: t.operatorName, Shift: t.shift, Tipe: t.type, Dikoreksi: rev.has(t.id) ? 'Ya' : '' })), 'Riwayat')
+  const doExport = () => exportXlsx(`riwayat-${from}_${to}`, shown.map(t => ({ Waktu: t.createdAt?.toDate ? t.createdAt.toDate().toLocaleString('id-ID') : '', Model: t.modelName, Kategori: t.productCategoryName, Line: t.lineName, Group: t.groupName, 'Supply Category': t.supplyCategoryName, 'Kode Part': t.partCode, 'Nama Part': t.partName, Qty: eff(t), 'Qty awal': t.qty, 'Catatan loss pack': lp.get(t.id)?.note ?? '', Unit: t.unit, Catatan: t.notes ?? '', Operator: t.operatorName, Shift: t.shift, Tipe: t.type, Dikoreksi: rev.has(t.id) ? 'Ya' : '' })), 'Riwayat')
   const typePill = (t: Tx) => rev.has(t.id) ? <Pill>Dibatalkan</Pill> : lp.has(t.id) ? <Pill tone="warn">Loss pack</Pill> : t.type === 'OVER_SUPPLY' ? <StatusPill status="OVER_SUPPLY" /> : null
   return <div>
     <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -43,6 +43,6 @@ export default function History() {
         return <li key={t.id} className={rev.has(t.id) ? 'opacity-50' : ''}><button className="w-full text-left px-4 py-3 flex gap-3 items-center" aria-expanded={o} onClick={() => setOpen(o ? '' : t.id)}>
           <div className="flex-1 min-w-0"><p className={`font-semibold num ${rev.has(t.id) ? 'line-through' : ''}`}><Highlight text={t.partCode} tokens={tokens} /></p><p className="text-xs text-mute truncate">{t.modelName} · Shift {t.shift} · {t.operatorName}</p></div>
           <div className="text-right"><p className="font-bold num">{eff(t)} <span className="text-xs font-normal text-mute">{t.unit}</span></p>{typePill(t)}</div><ChevronDown size={16} className={`text-mute transition-transform ${o ? 'rotate-180' : ''}`} /></button>
-          {o && <dl className="px-4 pb-3 text-sm grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 animate-fade">{[['Nama part', t.partName], ['Waktu', when(t.createdAt)], ['Line / Group', `${t.lineName} · ${t.groupName}`], ['Supply category', t.supplyCategoryName || '-'], ['Kategori', t.productCategoryName], ...(lp.has(t.id) ? [['Loss pack', `semula ${t.qty}: ${lp.get(t.id)!.note ?? ''}${lp.get(t.id)!.userName ? ` (${lp.get(t.id)!.userName})` : ''}`]] : [])].map(([k, v]) => <div key={k} className="contents"><dt className="text-mute">{k}</dt><dd>{v}</dd></div>)}</dl>}</li> })}</ul></>}
+          {o && <dl className="px-4 pb-3 text-sm grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 animate-fade">{[['Nama part', t.partName], ['Waktu', when(t.createdAt)], ['Line / Group', `${t.lineName} · ${t.groupName}`], ['Supply category', t.supplyCategoryName || '-'], ['Kategori', t.productCategoryName], ...(t.notes ? [['Catatan', t.notes]] : []), ...(lp.has(t.id) ? [['Loss pack', `semula ${t.qty}: ${lp.get(t.id)!.note ?? ''}${lp.get(t.id)!.userName ? ` (${lp.get(t.id)!.userName})` : ''}`]] : [])].map(([k, v]) => <div key={k} className="contents"><dt className="text-mute">{k}</dt><dd>{v}</dd></div>)}</dl>}</li> })}</ul></>}
     {txs.length >= n && <button className="btn btn-secondary w-full mt-3" onClick={() => setN(n + 300)}>Muat lebih banyak</button>}</div>
 }

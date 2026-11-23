@@ -1,4 +1,4 @@
-import { BarChart3, Cog, Database, Factory, FileUp, History, Home, PackageCheck, ScrollText, Users, type LucideIcon } from 'lucide-react'
+import { BarChart3, Cog, Database, DatabaseBackup, Factory, FileUp, History, Home, PackageCheck, ScrollText, Tags, Users, type LucideIcon } from 'lucide-react'
 import type { Section } from './lib/access'
 export interface MenuItem { to: string; label: string; icon: LucideIcon; section: Section; bottom?: boolean }
 export const MENU: MenuItem[] = [
@@ -10,6 +10,8 @@ export const MENU: MenuItem[] = [
   { to: '/laporan', label: 'Laporan', icon: BarChart3, section: 'laporan' },
   { to: '/master', label: 'Master Data', icon: Database, section: 'master' },
   { to: '/bom', label: 'Upload BOM', icon: FileUp, section: 'bom' },
+  { to: '/kategori-part', label: 'Kategori Part', icon: Tags, section: 'kategori' },
+  { to: '/cadangan', label: 'Cadangan Data', icon: DatabaseBackup, section: 'cadangan' },
   { to: '/pengguna', label: 'Pengguna', icon: Users, section: 'pengguna' },
   { to: '/audit', label: 'Audit Log', icon: ScrollText, section: 'audit' },
   { to: '/profil', label: 'Profil', icon: Users, section: 'profil' },

@@ -45,9 +45,12 @@ export default function Production() {
 
   const create = async (qty: number) => {
     const bomId = `${model!.id}_v${bom!.version}`
-    const snap = await getDocs(query(collection(db, 'bomDetails'), where('bomId', '==', bomId)))
+    // Only parts that have a supply category are tracked; the part master is the source of truth for the category.
+    const [snap, tracked] = await Promise.all([getDocs(query(collection(db, 'bomDetails'), where('bomId', '==', bomId))), getDocs(query(collection(db, 'parts'), where('supplyCategoryId', '!=', '')))])
     if (snap.empty) throw new Error('BOM aktif model ini tidak berisi part')
-    const snapLines: SnapLine[] = snap.docs.map(d => { const x = d.data(); return { partId: x.partId, partCode: x.partCode, partName: x.partName, qtyPerUnit: x.qtyPerUnit, unit: x.unit, supplyCategoryId: x.supplyCategoryId ?? '' } })
+    const cat = new Map(tracked.docs.map(d => [d.id, d.data().supplyCategoryId as string]))
+    const snapLines: SnapLine[] = snap.docs.filter(d => cat.has(d.data().partId)).map(d => { const x = d.data(); return { partId: x.partId, partCode: x.partCode, partName: x.partName, qtyPerUnit: x.qtyPerUnit, unit: x.unit, supplyCategoryId: cat.get(x.partId)! } })
+    if (!snapLines.length) throw new Error('Model ini tidak punya part yang dicatat (berkategori). Atur kategori part dulu di menu Kategori Part.')
     const ref = doc(collection(db, 'productions'))
     const info = { modelId: model!.id, modelName: model!.name, productCategoryId: catId, productCategoryName: nm(cats.items as never, catId), lineId: f.lineId, lineName: nm(lines.items as never, f.lineId), groupId: f.groupId, groupName: nm(groups.items as never, f.groupId), qty, date: f.date, notes: f.notes.trim(), status: 'ACTIVE' as Status, bomVersion: bom!.version, bomId }
     const b = writeBatch(db)

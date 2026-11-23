@@ -7,7 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useCollection } from '../lib/useCollection'
 import { todayStr } from '../lib/production'
 import { setShift, useShift } from '../lib/shift'
-import { addDays, NO_CATEGORY, setHideActivity, setOpCat, setOpName, useHideActivity, useOpCat, useOpName } from '../lib/supplyProfile'
+import { addDays, setHideActivity, setOpCat, setOpName, useHideActivity, useOpCat, useOpName } from '../lib/supplyProfile'
 import { when, type Ts } from '../lib/format'
 import { Empty, ErrorNote, Pill, Section, StatusPill } from '../ui'
 import { useProductions } from './Production'
@@ -19,12 +19,12 @@ export default function SupplyHome() {
   const { user } = useAuth(); const name = useOpName(); const cat = useOpCat(); const shift = useShift(); const hide = useHideActivity()
   const cats = useCollection<Cat>('supplyCategories'); const [date, setDate] = useState(todayStr()); const { items, err } = useProductions(date); const [editing, setEditing] = useState(false)
   const catList = cats.items.filter(c => c.active !== false).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-  const catLabel = cat === NO_CATEGORY ? 'Belum diatur' : cats.items.find(c => c.id === cat)?.name ?? ''
-  const complete = !!name.trim() && !!cat && !!shift; const open = editing || !complete
+  const catLabel = catList.find(c => c.id === cat)?.name ?? ''
+  const complete = !!name.trim() && (cats.loading ? !!cat : !!catLabel) && !!shift; const open = editing || !complete
   const schedule = items.filter(p => p.status !== 'CANCELLED').sort((a, b) => (a.status === 'ACTIVE' ? 0 : 1) - (b.status === 'ACTIVE' ? 0 : 1) || a.lineName.localeCompare(b.lineName) || a.modelName.localeCompare(b.modelName))
   const [recent, setRecent] = useState<Tx[]>([])
   useEffect(() => { if (hide) return; return onSnapshot(query(collection(db, 'supplyTransactions'), orderBy('createdAt', 'desc'), limit(40)), s => setRecent(s.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Tx, 'id'>) })))) }, [hide])
-  const mine = recent.filter(t => cat === NO_CATEGORY ? !t.supplyCategoryName : !!catLabel && t.supplyCategoryName === catLabel).slice(0, 8)
+  const mine = recent.filter(t => !!catLabel && t.supplyCategoryName === catLabel).slice(0, 8)
   const first = (name.trim() || user?.displayName || user?.email || '').split(/[\s@]/)[0]
   return <div>
     <div className="mb-5 flex flex-wrap items-end gap-3">
@@ -37,8 +37,7 @@ export default function SupplyHome() {
         <div><p className="font-semibold">{complete ? 'Ubah data tugas' : 'Isi dulu sebelum mulai'}</p><p className="text-sm text-mute">Nama, kategori supply, dan shift dipakai untuk mencatat pengambilan part dan menyaring tampilan.</p></div>
         <div><label className="label" htmlFor="opn">Nama Anda</label><input id="opn" className="input" autoComplete="off" placeholder="Contoh: Budi" value={name} onChange={e => setOpName(e.target.value)} /></div>
         <div><p className="label">Kategori supply Anda</p><div className="flex flex-wrap gap-2" role="group" aria-label="Kategori supply">
-          {catList.map(c => <button key={c.id} aria-pressed={cat === c.id} className={`chip ${cat === c.id ? 'chip-on' : ''}`} onClick={() => setOpCat(c.id)}>{c.name}</button>)}
-          <button aria-pressed={cat === NO_CATEGORY} className={`chip ${cat === NO_CATEGORY ? 'chip-on' : ''}`} onClick={() => setOpCat(NO_CATEGORY)}>Belum diatur</button></div></div>
+          {catList.map(c => <button key={c.id} aria-pressed={cat === c.id} className={`chip ${cat === c.id ? 'chip-on' : ''}`} onClick={() => setOpCat(c.id)}>{c.name}</button>)}</div></div>
         <div><p className="label">Shift</p><div className="inline-flex rounded-lg bg-canvas p-0.5" role="group" aria-label="Pilih shift">{[1, 2, 3].map(n => <button key={n} aria-pressed={shift === n} onClick={() => setShift(n)} className={`min-w-16 min-h-11 rounded-md text-sm font-semibold transition-colors ${shift === n ? 'bg-ink text-white' : 'text-ink2'}`}>Shift {n}</button>)}</div></div>
         {complete && <button className="btn btn-primary w-full" onClick={() => setEditing(false)}>Selesai</button>}</div>
       : <div className="flex items-center gap-3"><span className="w-11 h-11 rounded-full bg-ink text-white grid place-items-center font-bold shrink-0">{name.trim().charAt(0).toUpperCase()}</span>

@@ -44,3 +44,10 @@ Nama itu dicatat sebagai operator di setiap transaksi. Jadwal produksi hanya dib
 ## Loss pack
 Isi box yang ternyata berbeda dari yang tercatat dikoreksi lewat `correctQty` (`src/lib/supply.ts`), bukan dengan mengubah transaksi. Satu dokumen `transactionAdjustments` bertipe `LOSS_PACK` (id `lp_<txId>`, sekali per transaksi) menyimpan selisih dan catatan; total berjalan bergeser persis sebesar selisih itu dalam satu commit atomik, dijaga Security Rules.
 Jumlah efektif = qty tercatat + selisih (`effectiveQty`). Pembatalan oleh Leader membalik jumlah efektif itu. Transaksi asli tidak pernah diubah atau dihapus.
+
+## Part yang dicatat
+Hanya part yang punya supply category yang dicatat di aplikasi; part tanpa kategori tidak muncul di Supply, dashboard, maupun laporan. Kategori diatur per kode part di master part (menu Kategori Part, impor Excel kode part + kategori, atau satu per satu di Cari Part).
+Saat produksi dibuat, snapshot BOM hanya memuat part berkategori dengan kategori dari master part saat itu; produksi lama tidak berubah.
+
+## Cadangan data
+Menu Cadangan Data (Admin) untuk unduhan manual, plus cadangan otomatis mingguan lewat GitHub Actions (`.github/workflows/backup.yml`, `scripts/`). Lihat `docs/CADANGAN.md` untuk pemasangan, pembukaan, dan pemulihan.

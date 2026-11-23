@@ -16,7 +16,7 @@ import { when, type Ts } from '../lib/format'
 import { Empty, Highlight, Pill, Progress, Sheet, StatusPill, Toast, useDialog } from '../ui'
 import { useProgress } from '../lib/useProgress'
 import { partProgress, summarizeProgress } from '../lib/report'
-import { matchesCategory, NO_CATEGORY, useOpCat, useOpName } from '../lib/supplyProfile'
+import { matchesCategory, useOpCat, useOpName } from '../lib/supplyProfile'
 import { useProductions, type P } from './Production'
 interface Tx { id: string; partId: string; qty: number; shift: number; type: string; operatorName: string; createdAt: Ts }
 interface Adj { id: string; txId: string; type: string; qty: number; note?: string; userName?: string }
@@ -36,7 +36,7 @@ export default function Supply() {
     if (!prod) return []
     const by = new Map<string, { taken: number; shifts: Record<number, number>; list: Tx[] }>()
     txs.forEach(t => { const e = by.get(t.partId) ?? { taken: 0, shifts: {}, list: [] }; e.list.push(t); if (!reversed.has(t.id)) { const q = effectiveQty(t.qty, lpMap.get(t.id)?.qty ?? 0); e.taken = sumQty(e.taken, q); e.shifts[t.shift] = sumQty(e.shifts[t.shift] ?? 0, q) } by.set(t.partId, e) })
-    return lines.map(l => { const required = requiredQty(l.qtyPerUnit, prod.qty); const e = by.get(l.partId) ?? { taken: 0, shifts: {}, list: [] as Tx[] }
+    return lines.filter(l => !!l.supplyCategoryId).map(l => { const required = requiredQty(l.qtyPerUnit, prod.qty); const e = by.get(l.partId) ?? { taken: 0, shifts: {}, list: [] as Tx[] }
       return { ...l, required, taken: e.taken, remaining: remainingQty(required, e.taken), status: supplyStatus(required, e.taken), shifts: e.shifts, list: [...e.list].sort((a, b) => ms(b.createdAt) - ms(a.createdAt)) } }).sort((a, b) => a.partCode.localeCompare(b.partCode))
   }, [prod, lines, txs, reversed, lpMap])
   type Row = (typeof rows)[number]
@@ -63,8 +63,8 @@ export default function Supply() {
   const correct = async (txId: string) => { const reason = await prompt({ title: 'Koreksi transaksi', message: 'Transaksi dibatalkan, data asli tetap tersimpan. Tulis alasannya.', confirmLabel: 'Koreksi', danger: true }); if (!reason) return; try { await reverseTransaction(db, { txId, reason, user: { uid: user!.uid, name: uname } }); setToast({ m: 'Koreksi tercatat.', t: 'ok' }) } catch (e) { setToast({ m: (e as Error).message, t: 'bad' }) } }
   const active = prod?.status === 'ACTIVE'
   const closeSheet = () => { if (!busy) setTake(null) }
-  if (isSupply && (!opName || !opCat)) return <div className="surface"><Empty title="Lengkapi data tugas Anda" hint="Isi nama dan pilih kategori supply di Beranda agar hanya part kategori Anda yang tampil." /><div className="pb-6 text-center"><Link to="/" className="btn btn-primary">Ke Beranda</Link></div></div>
-  const myCatLabel = opCat === NO_CATEGORY ? 'Belum diatur' : catName(opCat)
+  if (isSupply && (!opName || !opCat || (!cats.loading && !cats.items.some(c => c.id === opCat)))) return <div className="surface"><Empty title="Lengkapi data tugas Anda" hint="Isi nama dan pilih kategori supply di Beranda agar hanya part kategori Anda yang tampil." /><div className="pb-6 text-center"><Link to="/" className="btn btn-primary">Ke Beranda</Link></div></div>
+  const myCatLabel = catName(opCat)
   return <div>
     {isSupply ? <div className="mb-4"><label className="label" htmlFor="sd2">Tanggal</label><input id="sd2" type="date" className="input !w-auto" value={date} onChange={e => { setDate(e.target.value); setProdId('') }} /></div> : <div className="surface p-3 mb-4 grid grid-cols-[auto_1fr] gap-2 items-end">
       <div><label className="label" htmlFor="sd">Tanggal</label><input id="sd" type="date" className="input" value={date} onChange={e => { setDate(e.target.value); setProdId('') }} /></div>
@@ -130,7 +130,7 @@ function ModelPicker({ prods, opCat, onPick }: { prods: P[]; opCat: string; onPi
   if (list.length === 0) return <div className="surface"><Empty title="Belum ada jadwal produksi" hint="Belum ada produksi untuk tanggal ini. Jadwal diinput oleh Leader atau Admin." /></div>
   return <><p className="text-sm text-mute mb-2 px-1">Pilih model yang akan disupply</p>
     <ul className="surface divide-y divide-line overflow-hidden">{list.map(p => {
-      const s = summarizeProgress(partProgress(lines[p.id] ?? [], p.qty, taken[p.id] ?? {}, opCat === NO_CATEGORY ? '' : opCat)); const done = s.completed + s.over; const v = s.items ? done * 100 / s.items : 0
+      const s = summarizeProgress(partProgress(lines[p.id] ?? [], p.qty, taken[p.id] ?? {}, opCat)); const done = s.completed + s.over; const v = s.items ? done * 100 / s.items : 0
       return <li key={p.id}><button className="relative w-full text-left pl-5 pr-4 py-4 flex gap-4 hover:bg-canvas/60 transition-colors" onClick={() => onPick(p.id)}>
         <span className={`absolute left-0 top-0 bottom-0 w-1 ${p.status === 'ACTIVE' ? 'bg-sharp' : 'bg-ok'}`} />
         <div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap"><h3 className="font-bold text-[17px] leading-tight">{p.modelName}</h3>{p.status === 'COMPLETED' && <StatusPill status="COMPLETED" />}{s.over > 0 && <Pill tone="bad">Over {s.over}</Pill>}</div>

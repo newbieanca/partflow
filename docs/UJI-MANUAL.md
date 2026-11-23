@@ -77,3 +77,19 @@ Siapkan satu produksi dengan satu part: kebutuhan 100, catat pengambilan 100.
 - [ ] Leader membatalkan (Koreksi) transaksi yang sudah dikoreksi loss pack: total kembali tepat (tidak minus, tidak sisa 3).
 - [ ] Audit Log (Admin) memuat TX_LOSS_PACK dengan nilai sebelum dan sesudah serta catatannya.
 - [ ] Akun supply mencoba mengubah transaksi langsung lewat konsol browser: ditolak (transaksi asli tidak bisa diubah).
+
+## Kategori Part (hanya part berkategori yang dicatat)
+- [ ] Menu Kategori Part (Admin): unggah daftar kode part + kategori. Pratinjau menampilkan jumlah akan diubah, sudah sama, dan bermasalah; tombol terapkan mati bila ada baris bermasalah.
+- [ ] Kategori yang tidak ada di Master Data, atau kode yang sama dengan kategori berbeda, tampil sebagai kkesalahan dengan nomor baris.
+- [ ] Baris tanpa kategori diabaikan (bukan kesalahan) dan tidak menghapus kategori yang sudah ada.
+- [ ] Setelah diterapkan, buat PRODUKSI BARU untuk model yang BOM-nya sudah diimpor: hanya part berkategori yang ada di Supply, Dashboard, dan Laporan. Part tanpa kategori tidak muncul di mana pun.
+- [ ] Produksi yang dibuat SEBELUM kategori diisi tidak berubah (snapshot lama). Buat ulang produksi uji tersebut.
+- [ ] Cari Part: part tanpa kategori bertuliskan "Tidak dicatat di aplikasi"; Admin bisa mengosongkan atau mengisi kategori satu per satu.
+- [ ] Akun supply: tidak ada pilihan "Belum diatur"; kategori lama yang tersimpan di perangkat (jika sudah tidak ada) meminta memilih ulang.
+
+## Cadangan data
+- [ ] Menu Cadangan Data: jumlah dokumen per koleksi tampil; "Unduh cadangan (JSON)" mengunduh file; "Unduh Excel" mengunduh file yang bisa dibuka.
+- [ ] Setelah mengunduh, status "Unduhan manual terakhir" terisi dan banner kuning pengingat menghilang.
+- [ ] Banner pengingat muncul untuk Admin bila cadangan terakhir lebih dari 7 hari (atau belum pernah); tidak muncul untuk Leader dan Operator.
+- [ ] Ikuti docs/CADANGAN.md: jalankan workflow Backup Firestore secara manual, unduh artifact, buka dengan OpenSSL, dan jalankan SIMULASI pemulihan (tanpa --yes).
+- [ ] Setelah workflow berhasil, "Cadangan otomatis terakhir" di aplikasi terisi.

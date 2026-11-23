@@ -1,0 +1,2 @@
+{ "name": "partflow-scripts", "private": true, "type": "module", "description": "Backup and restore tools for PARTFLOW (run by GitHub Actions, not part of the web app)",
+  "dependencies": { "firebase-admin": "^13.0.0", "xlsx": "0.18.5" } }

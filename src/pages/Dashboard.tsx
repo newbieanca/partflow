@@ -37,7 +37,7 @@ function LeaderDashboard() {
   const [recent, setRecent] = useState<Tx[]>([])
   useEffect(() => onSnapshot(query(collection(db, 'supplyTransactions'), orderBy('createdAt', 'desc'), limit(40)), s => setRecent(s.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Tx, 'id'>) })))), [])
   const nm = (a: { id: string; name: string }[], id: string) => a.find(x => x.id === id)?.name
-  const recentShown = recent.filter(t => (!fShift || t.shift === Number(fShift)) && (!fLine || t.lineName === nm(lns.items, fLine)) && (!fGroup || t.groupName === nm(grps.items, fGroup)) && (fSupply === '__all' || t.supplyCategoryName === (fSupply ? nm(sc.items, fSupply) : '')) && (!fModel || t.modelName.toLowerCase().includes(fModel.toLowerCase()))).slice(0, 8)
+  const recentShown = recent.filter(t => (!fShift || t.shift === Number(fShift)) && (!fLine || t.lineName === nm(lns.items, fLine)) && (!fGroup || t.groupName === nm(grps.items, fGroup)) && (fSupply === '__all' || t.supplyCategoryName === nm(sc.items, fSupply)) && (!fModel || t.modelName.toLowerCase().includes(fModel.toLowerCase()))).slice(0, 8)
   const alerts = per.flatMap(x => x.rows.filter(r => r.status === 'OVER_SUPPLY').map(r => ({ p: x.p, r })))
   const lagging = [...per].filter(x => x.s.items - x.s.completed - x.s.over > 0).sort((a, b) => (b.s.items - b.s.completed - b.s.over) - (a.s.items - a.s.completed - a.s.over)).slice(0, 4)
   const first = (user?.displayName ?? user?.email ?? '').split(/[\s@]/)[0]
@@ -56,7 +56,7 @@ function LeaderDashboard() {
       <select className="input" value={fLine} onChange={e => setFLine(e.target.value)}><option value="">Semua line</option>{lns.items.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
       <select className="input" value={fGroup} onChange={e => setFGroup(e.target.value)}><option value="">Semua group</option>{grps.items.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
       <select className="input" value={fShift} onChange={e => setFShift(e.target.value)}><option value="">Aktivitas semua shift</option><option value="1">Shift 1</option><option value="2">Shift 2</option><option value="3">Shift 3</option></select>
-      <select className="input col-span-1 md:col-span-2" value={fSupply} onChange={e => setFSupply(e.target.value)}><option value="__all">Semua supply category</option>{sc.items.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}<option value="">Belum diatur</option></select>
+      <select className="input col-span-1 md:col-span-2" value={fSupply} onChange={e => setFSupply(e.target.value)}><option value="__all">Semua supply category</option>{sc.items.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
       <button className="btn btn-ghost" onClick={() => { setFCat(''); setFLine(''); setFGroup(''); setFModel(''); setFSupply('__all'); setFShift('') }}>Reset</button></div>}
 
     <div className="surface mb-6 overflow-hidden"><div className="grid grid-cols-2 md:grid-cols-4">

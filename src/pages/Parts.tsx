@@ -20,7 +20,7 @@ export default function Parts() {
   const tokens = q.toLowerCase().split(/\s+/).filter(Boolean)
   const matches = useMemo(() => parts.items.filter(p => { const hay = `${p.code} ${p.name} ${p.description ?? ''}`.toLowerCase(); return tokens.every(t => hay.includes(t)) }).sort((a, b) => a.code.localeCompare(b.code)), [parts.items, q])
   const shown = matches.slice(0, 60)
-  const catName = (id: string) => cats.items.find(c => c.id === id)?.name ?? 'Supply category belum diatur'
+  const catName = (id: string) => cats.items.find(c => c.id === id)?.name ?? 'Tidak dicatat di aplikasi'
   const toggle = async (p: Part & { id: string }) => {
     if (open === p.id) return setOpen(''); setOpen(p.id); if (uses[p.id]) return
     setUses(u => ({ ...u, [p.id]: 'loading' }))
@@ -34,7 +34,7 @@ export default function Parts() {
   const save = async () => {
     setMsg('')
     try {
-      if (!f.code.trim() || !f.name.trim() || !f.supplyCategoryId) throw new Error('Kode, nama, dan supply category wajib diisi')
+      if (!f.code.trim() || !f.name.trim()) throw new Error('Kode dan nama wajib diisi')
       const id = partId(f.code); const old = parts.items.find(p => p.id === id)
       if (old && editing !== id) throw new Error('Kode part sudah ada')
       const data = { code: f.code.trim().toUpperCase(), name: f.name.trim(), unit: f.unit.trim(), supplyCategoryId: f.supplyCategoryId, description: f.description.trim(), active: old?.active ?? true, updatedAt: serverTimestamp() }
@@ -61,7 +61,7 @@ export default function Parts() {
       <div><label className="label">Kode part</label><input className="input" disabled={!!editing} value={f.code} onChange={e => setF({ ...f, code: e.target.value })} /></div>
       <div><label className="label">Unit</label><input className="input" value={f.unit} onChange={e => setF({ ...f, unit: e.target.value })} /></div>
       <div className="col-span-2"><label className="label">Nama part</label><input className="input" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></div>
-      <div className="col-span-2"><label className="label">Supply category</label><select className="input" value={f.supplyCategoryId} onChange={e => setF({ ...f, supplyCategoryId: e.target.value })}><option value="">Pilih…</option>{cats.items.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+      <div className="col-span-2"><label className="label">Supply category</label><select className="input" value={f.supplyCategoryId} onChange={e => setF({ ...f, supplyCategoryId: e.target.value })}><option value="">Tidak dicatat (tanpa kategori)</option>{cats.items.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       <div className="col-span-2"><label className="label">Deskripsi (opsional)</label><input className="input" value={f.description} onChange={e => setF({ ...f, description: e.target.value })} /></div>
       {msg && <div className="col-span-2"><ErrorNote>{msg}</ErrorNote></div>}<button className="btn btn-primary btn-lg col-span-2" onClick={save}>{editing ? 'Simpan perubahan' : 'Tambah part'}</button></div></Sheet></div>
 }
