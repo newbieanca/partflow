@@ -1,6 +1,7 @@
 name: Organize files
-# One-time cleanup: moves files that were uploaded flat into the repo root back into src/, public/, scripts/ and docs/.
-# It verifies (install + tests + production build) BEFORE committing, so nothing broken is ever pushed.
+# One-time cleanup: moves files that were uploaded flat into the repo root back into src/, public/, scripts/ and docs/,
+# and rewrites both package.json files with known-good content. It verifies (install + tests + production build)
+# BEFORE committing, so nothing broken is ever pushed.
 on:
   workflow_dispatch: {}
 permissions:
@@ -94,11 +95,59 @@ jobs:
           echo "--- membersihkan berkas lepas di tingkat atas yang tidak dikenal:"
           KEEP=" .env.example .gitignore README.md backup.yml ci.yml firestore.rules index.html package-lock.json package.json tsconfig.json vercel.json vite.config.ts "
           git ls-files | grep -v "/" | while IFS= read -r f; do case "$KEEP" in *" $f "*) ;; *) git rm -q -f -- "$f"; echo "dihapus: $f";; esac; done
+          echo "--- menulis package.json yang benar (tingkat atas dan scripts):"
+          cat > package.json <<'PKG_ROOT_EOF'
+          {
+            "name": "partflow",
+            "private": true,
+            "version": "0.1.0",
+            "type": "module",
+            "scripts": {
+              "dev": "vite",
+              "build": "tsc -b && vite build",
+              "preview": "vite preview",
+              "test": "vitest run"
+            },
+            "dependencies": {
+              "@fontsource-variable/inter": "^5.3.0",
+              "firebase": "^11.0.0",
+              "lucide-react": "^1.76.0",
+              "react": "^18.3.1",
+              "react-dom": "^18.3.1",
+              "react-router-dom": "^6.28.0",
+              "xlsx": "^0.18.5"
+            },
+            "devDependencies": {
+              "@tailwindcss/vite": "^4.0.0",
+              "@types/react": "^18.3.0",
+              "@types/react-dom": "^18.3.0",
+              "@vitejs/plugin-react": "^4.3.0",
+              "tailwindcss": "^4.0.0",
+              "typescript": "~5.6.0",
+              "vite": "^6.0.0",
+              "vitest": "^2.1.0"
+            }
+          }
+          PKG_ROOT_EOF
+          cat > scripts/package.json <<'PKG_SCRIPTS_EOF'
+          {
+            "name": "partflow-scripts",
+            "private": true,
+            "type": "module",
+            "description": "Backup and restore tools for PARTFLOW (run by GitHub Actions, not part of the web app)",
+            "dependencies": {
+              "firebase-admin": "^13.0.0",
+              "xlsx": "0.18.5"
+            }
+          }
+          PKG_SCRIPTS_EOF
+          git rm -q -f --ignore-unmatch -- "package (1).json"
+          
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install
-        run: npm ci --no-audit --no-fund
+      - name: Install (also refreshes package-lock.json)
+        run: npm install --no-audit --no-fund
       - name: Tests
         run: npm test
       - name: Production build
