@@ -1,0 +1,118 @@
+name: Organize files
+# One-time cleanup: moves files that were uploaded flat into the repo root back into src/, public/, scripts/ and docs/.
+# It verifies (install + tests + production build) BEFORE committing, so nothing broken is ever pushed.
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  organize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move files into their folders
+        run: |
+          set -e
+          mv_to() { if [ -f "$1" ]; then mkdir -p "$(dirname "$2")"; git mv -f "$1" "$2"; echo "dipindah: $1 -> $2"; fi; }
+          mv_to CADANGAN.md docs/CADANGAN.md
+          mv_to PANDUAN-OPERATOR.md docs/PANDUAN-OPERATOR.md
+          mv_to UJI-MANUAL.md docs/UJI-MANUAL.md
+          mv_to apple-touch-icon.png public/apple-touch-icon.png
+          mv_to partflow-logo.webp public/brand/partflow-logo.webp
+          mv_to partflow-mark.webp public/brand/partflow-mark.webp
+          mv_to partflow-wordmark.webp public/brand/partflow-wordmark.webp
+          mv_to sharp-logo.webp public/brand/sharp-logo.webp
+          mv_to favicon-32.png public/favicon-32.png
+          mv_to favicon-64.png public/favicon-64.png
+          mv_to favicon.ico public/favicon.ico
+          mv_to icon-192.png public/icon-192.png
+          mv_to icon-512.png public/icon-512.png
+          mv_to icon-maskable-512.png public/icon-maskable-512.png
+          mv_to manifest.webmanifest public/manifest.webmanifest
+          mv_to sw.js public/sw.js
+          mv_to backup.mjs scripts/backup.mjs
+          mv_to backupFormat.mjs scripts/backupFormat.mjs
+          mv_to backupFormat.test.mjs scripts/backupFormat.test.mjs
+          mv_to 'package (1).json' scripts/package.json
+          mv_to restore.mjs scripts/restore.mjs
+          mv_to App.tsx src/App.tsx
+          mv_to AuthContext.tsx src/auth/AuthContext.tsx
+          mv_to brandAssets.ts src/brandAssets.ts
+          mv_to BackupBanner.tsx src/components/BackupBanner.tsx
+          mv_to LossPack.tsx src/components/LossPack.tsx
+          mv_to index.css src/index.css
+          mv_to access.test.ts src/lib/access.test.ts
+          mv_to access.ts src/lib/access.ts
+          mv_to audit.ts src/lib/audit.ts
+          mv_to backupFormat.test.ts src/lib/backupFormat.test.ts
+          mv_to backupFormat.ts src/lib/backupFormat.ts
+          mv_to bom.test.ts src/lib/bom.test.ts
+          mv_to bom.ts src/lib/bom.ts
+          mv_to bomFile.test.ts src/lib/bomFile.test.ts
+          mv_to bomFile.ts src/lib/bomFile.ts
+          mv_to exportXlsx.ts src/lib/exportXlsx.ts
+          mv_to firebase.ts src/lib/firebase.ts
+          mv_to format.ts src/lib/format.ts
+          mv_to partCategoryFile.test.ts src/lib/partCategoryFile.test.ts
+          mv_to partCategoryFile.ts src/lib/partCategoryFile.ts
+          mv_to production.test.ts src/lib/production.test.ts
+          mv_to production.ts src/lib/production.ts
+          mv_to pwa.ts src/lib/pwa.ts
+          mv_to report.test.ts src/lib/report.test.ts
+          mv_to report.ts src/lib/report.ts
+          mv_to shift.ts src/lib/shift.ts
+          mv_to slug.ts src/lib/slug.ts
+          mv_to supply.ts src/lib/supply.ts
+          mv_to supplyProfile.test.ts src/lib/supplyProfile.test.ts
+          mv_to supplyProfile.ts src/lib/supplyProfile.ts
+          mv_to takeLogic.test.ts src/lib/takeLogic.test.ts
+          mv_to takeLogic.ts src/lib/takeLogic.ts
+          mv_to types.ts src/lib/types.ts
+          mv_to useCollection.ts src/lib/useCollection.ts
+          mv_to useLive.ts src/lib/useLive.ts
+          mv_to useProgress.ts src/lib/useProgress.ts
+          mv_to main.tsx src/main.tsx
+          mv_to menu.ts src/menu.ts
+          mv_to Audit.tsx src/pages/Audit.tsx
+          mv_to Backup.tsx src/pages/Backup.tsx
+          mv_to BomImport.tsx src/pages/BomImport.tsx
+          mv_to Dashboard.tsx src/pages/Dashboard.tsx
+          mv_to History.tsx src/pages/History.tsx
+          mv_to MasterData.tsx src/pages/MasterData.tsx
+          mv_to PartCategories.tsx src/pages/PartCategories.tsx
+          mv_to Parts.tsx src/pages/Parts.tsx
+          mv_to Production.tsx src/pages/Production.tsx
+          mv_to Profile.tsx src/pages/Profile.tsx
+          mv_to Reports.tsx src/pages/Reports.tsx
+          mv_to Supply.tsx src/pages/Supply.tsx
+          mv_to SupplyHome.tsx src/pages/SupplyHome.tsx
+          mv_to Users.tsx src/pages/Users.tsx
+          mv_to ui.test.tsx src/ui.test.tsx
+          mv_to ui.tsx src/ui.tsx
+          mv_to env.example .env.example
+          echo "--- membersihkan berkas lepas di tingkat atas yang tidak dikenal:"
+          KEEP=" .env.example .gitignore README.md backup.yml ci.yml firestore.rules index.html package-lock.json package.json tsconfig.json vercel.json vite.config.ts "
+          git ls-files | grep -v "/" | while IFS= read -r f; do case "$KEEP" in *" $f "*) ;; *) git rm -q -f -- "$f"; echo "dihapus: $f";; esac; done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Tests
+        run: npm test
+      - name: Production build
+        env:
+          VITE_FIREBASE_API_KEY: ci
+          VITE_FIREBASE_AUTH_DOMAIN: ci.example
+          VITE_FIREBASE_PROJECT_ID: ci
+          VITE_FIREBASE_STORAGE_BUCKET: ci.example
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '0'
+          VITE_FIREBASE_APP_ID: ci
+        run: npm run build
+      - name: Commit the result
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "Tidak ada perubahan" || (git commit -m "Organize files into folders" && git push)
