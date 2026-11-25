@@ -36,7 +36,8 @@ function Login() {
         <div><label className="label" htmlFor="pw">Password</label><input id="pw" className="input" type="password" autoComplete="current-password" value={p} onChange={x => setP(x.target.value)} onKeyDown={x => x.key === 'Enter' && go()} /></div>
         {(err || blocked) && <p role="alert" className="text-sm text-bad">{err || blocked}</p>}
         <button disabled={busy} className="btn btn-primary btn-lg w-full" onClick={go}>{busy ? 'Masuk…' : 'Masuk'}</button></div>
-      <div className="md:hidden mt-10 flex items-center justify-center gap-2"><BrandImg kind="sharp" alt="SHARP" className="h-3.5 w-auto" /><span className="text-xs text-mute">PT Sharp Electronics Indonesia</span></div></div></div></div>
+      <div className="md:hidden mt-10 flex items-center justify-center gap-2"><BrandImg kind="sharp" alt="SHARP" className="h-3.5 w-auto" /><span className="text-xs text-mute">PT Sharp Electronics Indonesia</span></div>
+      <p className="mt-6 text-center text-xs text-mute">Powered by <b className="font-semibold text-ink2">NWBC</b></p></div></div></div>
 }
 export default function App() {
   const { user, role, loading } = useAuth(); const loc = useLocation(); const shift = useShift()
@@ -59,7 +60,8 @@ export default function App() {
         <span className="hidden md:inline text-sm text-mute">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</span>{shiftChip}<span className="md:hidden">{avatar}</span></header>
       <main key={loc.pathname} className="animate-page px-4 md:px-8 py-5 md:py-8 max-w-5xl mx-auto pb-28 md:pb-10">{role === 'ADMIN' && <BackupBanner />}<Routes>
         {MENU.map(m => <Route key={m.to} path={m.to} element={canAccess(role, m.section) ? PAGES[m.section] : <Navigate to="/" />} />)}
-        <Route path="*" element={<Navigate to="/" />} /></Routes></main></div>
+        <Route path="*" element={<Navigate to="/" />} /></Routes>
+        <footer className="mt-10 pt-4 text-center text-xs text-mute">Powered by <b className="font-semibold text-ink2">NWBC</b></footer></main></div>
     <nav aria-label="Navigasi utama" className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-line grid grid-cols-5 z-30" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {bottom.map(m => <NavLink key={m.to} to={m.to} end={m.to === '/'} className={tab}>{({ isActive }) => <>{isActive && <span className="absolute top-0 h-0.5 w-8 bg-sharp rounded-full" />}<m.icon size={22} strokeWidth={isActive ? 2.4 : 1.8} />{m.label}</>}</NavLink>)}</nav></div>
 }
