@@ -25,3 +25,9 @@ describe('design system components', () => {
     expect(html(<Empty title="Kosong" hint="petunjuk" />)).toContain('petunjuk')
   })
 })
+import { BrandImg } from './ui'
+describe('BrandImg', () => {
+  it('renders an embedded logo (data URI, no file to fetch) with its alt text', () => {
+    for (const kind of ['logo', 'wordmark', 'mark', 'sharp'] as const) { const h = html(<BrandImg kind={kind} alt="X" className="h-6" />); expect(h).toContain('src="data:image/webp;base64,'); expect(h).toContain('alt="X"') }
+  })
+})

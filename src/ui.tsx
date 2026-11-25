@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Inbox, Loader2, X, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { BRAND, type BrandKind } from './brandAssets'
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'mute'
 const TONE: Record<Tone, string> = { ok: 'bg-green-50 text-green-700', warn: 'bg-amber-50 text-amber-800', bad: 'bg-red-50 text-red-700', info: 'bg-blue-50 text-blue-700', mute: 'bg-slate-100 text-ink2' }
@@ -57,4 +58,14 @@ export function DialogProvider({ children }: { children: ReactNode }) {
       {req.kind === 'prompt' && <input autoFocus className="input mb-4" value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && val.trim() && close(val.trim())} />}
       <div className="flex gap-2"><button className="btn btn-secondary flex-1" onClick={cancel}>Batal</button>
         <button className={`btn flex-1 ${req.danger ? 'btn-danger' : 'btn-primary'}`} onClick={() => close(req.kind === 'confirm' ? true : val.trim() || null)}>{req.confirmLabel ?? 'OK'}</button></div></>}</Sheet></DlgCtx.Provider>
+}
+
+/** Brand logo from the embedded data URIs. If it ever fails to decode, a text lockup is shown instead of a broken-image icon. */
+export function BrandImg({ kind, alt, className }: { kind: BrandKind; alt: string; className?: string }) {
+  const [bad, setBad] = useState(false)
+  if (!bad) return <img src={BRAND[kind]} alt={alt} className={className} onError={() => setBad(true)} />
+  if (kind === 'wordmark') return <span role="img" aria-label={alt} className="flex items-center gap-2"><span className="w-1.5 h-5 bg-sharp rounded-sm" /><b className="text-lg tracking-tight text-ink">PARTFLOW</b></span>
+  if (kind === 'logo') return <b role="img" aria-label={alt} className={`block text-center text-3xl font-extrabold tracking-tight text-ink ${className?.includes('mx-auto') ? 'mx-auto' : ''}`}>PART<span className="text-sharp">FLOW</span></b>
+  if (kind === 'sharp') return <b role="img" aria-label={alt} className="text-sharp font-extrabold tracking-tight">SHARP</b>
+  return null
 }
