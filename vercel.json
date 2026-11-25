@@ -1,12 +1,2 @@
-{
-  "framework": "vite",
-  "installCommand": "npm install",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "rewrites": [
-    { "source": "/((?!sw.js|manifest.webmanifest|icon-.*|favicon.*|apple-touch-icon.png|brand/|assets/).*)", "destination": "/index.html" }
-  ],
-  "headers": [
-    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
-  ]
-}
+{"rewrites":[{"source":"/((?!sw.js|manifest.webmanifest|icon-.*|favicon.*|apple-touch-icon.png|brand/|assets/).*)","destination":"/index.html"}],
+ "headers":[{"source":"/sw.js","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}
